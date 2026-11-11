@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>申赎台账 · 国家队稳市资金监测</title>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="notice" id="notice">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+  <span id="notice-text">本页为公开数据测算，非官方披露</span>
+</div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="M17 17l2 2 3-4"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">申赎台账</div>
+        <div class="brand-sub">国家队稳市资金监测</div>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="页面导航">
+      <a href="#daily" class="nav-item is-active" data-nav="daily">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 20h18M6 16v-5M11 16V7M16 16v-8M21 16v-4"/></svg>
+        <span>日频台账</span><span class="nav-tag">L1 / L2</span>
+      </a>
+      <a href="#calibration" class="nav-item" data-nav="calibration">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 19V5M4 19h16"/><circle cx="9" cy="13" r="2"/><circle cx="16" cy="8" r="2"/><path d="M10.5 11.5L14.5 9.5"/></svg>
+        <span>校准层</span><span class="nav-tag">L3</span>
+      </a>
+      <a href="#method" class="nav-item" data-nav="method">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+        <span>口径与误差</span><span class="nav-tag">N1–N10</span>
+      </a>
+      <a href="#sources" class="nav-item" data-nav="sources">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+        <span>数据源与主体字典</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-foot-row"><span>数据截止</span><strong id="side-date">—</strong></div>
+      <div class="side-foot-row"><span>交易日数</span><strong id="side-sessions">—</strong></div>
+      <div class="side-foot-row"><span>标的池</span><strong id="side-pool">—</strong></div>
+      <div class="side-foot-row"><span>实名锚点</span><strong id="side-report">—</strong></div>
+      <div class="side-note">份额日报 T+1，收盘价近似净值，推测值均带「测算」角标</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section id="daily" class="section">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">日频台账 · <span id="head-range">2026 年完整序列</span></div>
+          <h1>全池净申购台账</h1>
+          <p class="lede" id="head-lede">按交易所份额日报逐只登记，金额以当日收盘价近似净值折算。份额变动是全市场匿名净额，不等于国家队买入 <a class="fn" href="#N4">[N4]</a></p>
+        </div>
+        <div class="head-controls" role="group" aria-label="时间范围">
+          <button class="seg" data-range="30" type="button">近 30 日</button>
+          <button class="seg" data-range="90" type="button">近 90 日</button>
+          <button class="seg is-active" data-range="all" type="button">全年</button>
+        </div>
+      </header>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card chart-card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">日净申购与累计净申购</div>
+            <div class="card-sub">柱：当日全池净申购，亿元 <a class="fn" href="#N1">[N1]</a> · 线：区间内累计，右轴，亿元</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><i class="swatch swatch-accent"></i>净申购</span>
+            <span class="legend-item"><i class="swatch swatch-muted"></i>净赎回</span>
+            <span class="legend-item"><i class="swatch swatch-line"></i>累计</span>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chart-wrap">
+          <svg id="chart" role="img" aria-label="日频净申购柱状图与累计净申购折线"></svg>
+          <div class="tooltip" id="tooltip" hidden></div>
+        </div>
+        <div class="chart-foot" id="chart-foot"></div>
+      </div>
+
+      <div class="split">
+        <div class="card score-card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">疑似入场强度 <span class="badge">测算 · L2</span></div>
+              <div class="card-sub">启发式打分，不是身份认定，也不是买卖建议 <a class="fn" href="#N5">[N5]</a></div>
+            </div>
+          </div>
+          <div id="score-body"></div>
+          <button class="disclose" id="disclose" type="button" aria-expanded="false" aria-controls="reasons">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            <span>展开命中依据与未接入项</span>
+          </button>
+          <div class="reasons" id="reasons" hidden></div>
+        </div>
+
+        <div class="card rank-card">
+          <div class="card-head">
+            <div>
+              <div class="card-title"><span id="rank-title">当日逐只净申购</span> <span class="badge badge-plain">实测 · L1</span></div>
+              <div class="card-sub" id="rank-sub">逐只 Δ份额 × 当日收盘价，按金额排序</div>
+            </div>
+          </div>
+          <div class="rank-list" id="rank-list"></div>
+        </div>
+      </div>
+
+      <div class="split split-wide">
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">净申购最大的交易日</div><div class="card-sub">全池当日合计，亿元</div></div></div>
+          <div class="day-list" id="day-in"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">净赎回最大的交易日</div><div class="card-sub">全池当日合计，亿元</div></div></div>
+          <div class="day-list" id="day-out"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="calibration" class="section">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">校准层 · L3</div>
+          <h1>实名锚点与未闭合的误差</h1>
+          <p class="lede">半年报的前十大持有人是唯一实名口径，但最长滞后六个月。这一层把锚点、冲突和校验偏差直接摆出来，不把误差藏进脚注。</p>
+        </div>
+      </header>
+      <div class="stats" id="cal-stats"></div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">报告期实名锚点 vs 当前份额</div><div class="card-sub" id="anchor-sub"></div></div></div>
+        <div class="table-scroll">
+          <table class="table" id="anchor-table">
+            <thead><tr><th>代码</th><th>名称</th><th class="num">实名持有份额（亿份）</th><th class="num">报告期占比</th><th class="num">当前总份额（亿份）</th><th class="num">锚点隐含占比</th><th>状态</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card-foot" id="anchor-foot"></div>
+      </div>
+      <div class="split split-wide">
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">交易所口径校验</div><div class="card-sub">上交所份额日报 TOT_VOL × 10000 与本页序列逐日比对 <a class="fn" href="#N1">[N1]</a></div></div></div>
+          <div id="sse-check"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">归因缺口</div><div class="card-sub">为什么现在还不能把日频数字叫成持仓</div></div></div>
+          <div id="gap-body"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="method" class="section">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">口径与误差 · N1–N10</div>
+          <h1>每个数字怎么来的</h1>
+          <p class="lede">页面上的脚注编号都指向这里。改口径时先改这一页，再改脚本。</p>
+        </div>
+      </header>
+      <div class="notes" id="notes"></div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">官方公告与媒体事件</div><div class="card-sub">只作背景标注，不进入强度打分 <a class="fn" href="#N6">[N6]</a></div></div></div>
+        <div class="events" id="events"></div>
+      </div>
+    </section>
+
+    <section id="sources" class="section">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">数据源与主体字典</div>
+          <h1>来源、边界与归一规则</h1>
+          <p class="lede">全部为公开数据，无 Wind / Choice 授权依赖。标的选择以「有实名锚点可回溯」为准。</p>
+        </div>
+      </header>
+      <div class="split split-wide">
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">数据源</div><div class="card-sub">采集脚本 scripts/gather.mjs，零依赖，日更</div></div></div>
+          <div id="source-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">主体分层字典</div><div class="card-sub">config/entities.json，带排除规则 <a class="fn" href="#N10">[N10]</a></div></div></div>
+          <div id="entity-list"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">已知误判样本</div><div class="card-sub">纯关键词匹配会把这些当成国家队，本页一律排除</div></div></div>
+        <div id="false-positives"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">标的池边界</div><div class="card-sub" id="pool-boundary"></div></div></div>
+        <div class="pool-chips" id="pool-chips"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>申赎台账 · 公开数据测算</span>
+      <span id="foot-meta"></span>
+    </footer>
+  </main>
+</div>
+
+<script src="./data/dashboard.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

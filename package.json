@@ -1,0 +1,13 @@
+{
+  "name": "shenshu-taizhang",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "国家队稳市资金监测 · 公开数据测算。纯静态站，无后端、无构建、无第三方运行时依赖。",
+  "scripts": {
+    "gather": "node scripts/gather.mjs",
+    "build": "node scripts/build.mjs",
+    "smoke": "node scripts/smoke.cjs",
+    "refresh": "node scripts/gather.mjs && node scripts/build.mjs"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+.npm-cache/
+_*.cjs
+_*.mjs
+dist/
+.DS_Store
+.github-pat
