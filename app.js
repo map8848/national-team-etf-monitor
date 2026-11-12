@@ -459,14 +459,85 @@
     return '<span class="pool-chip"><b>' + esc(p.code) + '</b>' + esc(p.name) + ' <span class="dim">· ' + esc(p.group) + '</span></span>';
   }).join('');
 
-  /* ---------- 导航高亮 ---------- */
-  if (window.IntersectionObserver) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        $$('.nav-item').forEach(function (a) { a.classList.toggle('is-active', a.dataset.nav === en.target.id); });
-      });
-    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
-    $$('.section').forEach(function (s) { io.observe(s); });
+  /* ---------- 导航：点击左侧导航才显示对应模块 ---------- */
+  var sections = $$('.section');
+
+  function elById(id) { try { return document.querySelector('#' + id); } catch (e) { return null; } }
+
+  function sectionOf(el) {
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('section')) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  /* 锚点可能落在某个模块内部（脚注 N1–N13 在 #method 内），先找出承载它的模块 */
+  function ownerOf(raw) {
+    var tgt = elById(raw);
+    var owner = tgt ? sectionOf(tgt) : null;
+    if (!owner) sections.forEach(function (s) { if (s.id === raw) owner = s; });
+    return { tgt: tgt, owner: owner };
+  }
+
+  function showSection(id) {
+    var target = null;
+    sections.forEach(function (s) {
+      var on = (s.id === id);
+      s.hidden = !on;
+      if (on) target = s;
+    });
+    if (!target && sections.length) { target = sections[0]; target.hidden = false; id = target.id; }
+    $$('.nav-item').forEach(function (a) { a.classList.toggle('is-active', a.dataset.nav === id); });
+    if (id === 'daily') renderChart();
+    return target;
+  }
+
+  function scrollToEl(el) { if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView(); }
+
+  function goto(raw) {
+    var found = ownerOf(raw);
+    if (!found.owner) return false;
+    showSection(found.owner.id);
+    if (typeof location === 'undefined') { scrollToEl(found.tgt || found.owner); return true; }
+    if (location.hash === '#' + raw) scrollToEl(found.tgt || found.owner);  // hash 未变，浏览器不会自己滚
+    else location.hash = raw;                                             // 原生滚动 + :target + 历史记录
+    return true;
+  }
+
+  /* 脚注与导航都走同一条路径：先展开模块，再交给浏览器做片段跳转 */
+  if (document.addEventListener) {
+    document.addEventListener('click', function (ev) {
+      var a = ev.target;
+      while (a && a !== document.body && String(a.tagName || '').toUpperCase() !== 'A') a = a.parentNode;
+      if (!a || String(a.tagName || '').toUpperCase() !== 'A') return;
+      var href = '';
+      try { href = a.getAttribute('href') || ''; } catch (e) { return; }
+      if (href.charAt(0) !== '#' || href.length < 2) return;
+      var raw = href.slice(1);
+      if (!ownerOf(raw).owner) return;
+      ev.preventDefault();
+      goto(raw);
+    });
+  }
+
+  /* 浏览器前进后退 */
+  if (window.addEventListener) {
+    window.addEventListener('hashchange', function () {
+      if (typeof location === 'undefined') return;
+      var raw = (location.hash || '').replace(/^#/, '');
+      if (!raw) { showSection('daily'); scrollToEl(elById('daily')); return; }
+      var found = ownerOf(raw);
+      if (!found.owner) return;
+      var wasHidden = found.owner.hidden;
+      showSection(found.owner.id);
+      if (wasHidden) scrollToEl(found.tgt || found.owner);
+    });
+  }
+
+  /* 直达链接（如 /#calibration、/#N7） */
+  if (typeof location !== 'undefined' && location.hash && location.hash.length > 1) {
+    var start = ownerOf(location.hash.replace(/^#/, ''));
+    if (start.owner) { showSection(start.owner.id); scrollToEl(start.tgt || start.owner); }
   }
 })();

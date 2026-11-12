@@ -99,7 +99,8 @@ a:hover { text-decoration: underline; }
 /* 主区 */
 .main { min-width: 0; padding: 0 40px 48px; max-width: 1600px; }
 .section { padding: 40px 0 8px; scroll-margin-top: 52px; }
-.section + .section { border-top: 1px solid var(--line); margin-top: 40px; }
+/* 只显示一个模块时，相邻分隔线不应残留在可见模块顶部 */
+.section:not([hidden]) + .section:not([hidden]) { border-top: 1px solid var(--line); margin-top: 40px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .eyebrow { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-bottom: 8px; }
 h1 { font-size: 32px; font-weight: 500; line-height: 1.3; margin: 0 0 12px; }
