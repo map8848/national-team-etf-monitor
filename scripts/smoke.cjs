@@ -34,6 +34,8 @@ const checks = [
   ['stats', cache.get('#stats')],
   ['chart', cache.get('#chart')],
   ['compare-strip', cache.get('#compare-strip')],
+  ['scenario-table', cache.get('#scenario-table')],
+  ['scenario-foot', cache.get('#scenario-foot')],
   ['cal-stats', cache.get('#cal-stats')],
   ['reasons', cache.get('#reasons')],
   ['anchor-table tbody', cache.get('#anchor-table tbody')],
@@ -53,3 +55,6 @@ console.log('index:', cache.get('#idx-name').textContent, '· indices in data:',
 console.log('chart-foot:', cache.get('#chart-foot').innerHTML.slice(0, 90));
 if (bad) process.exit(1);
 if (!(D.indices || []).length) { console.error('SMOKE FAIL: 缺少 indices'); process.exit(1); }
+const sc = (D.indices || []).map((i) => i.scenario).filter(Boolean);
+if (!sc.length) { console.error('SMOKE FAIL: 缺少 scenario'); process.exit(1); }
+console.log('scenario:', sc[0].rows.map((r) => `${r.id} n=${r.n} med20=${r.f20.med}% win=${r.f20.win}%`).join(' | '));

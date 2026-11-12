@@ -10,6 +10,8 @@
   --accent: #2e5a7a;
   --accent-soft: #eaf0f4;
   --muted-bar: #bcb7ab;
+  --up: #bf4342;
+  --down: #3a7355;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -160,8 +162,8 @@ h1 { font-size: 32px; font-weight: 500; line-height: 1.3; margin: 0 0 12px; }
 .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
 .swatch-accent { background: var(--accent); }
 .swatch-muted { background: var(--muted-bar); }
-.swatch-up { background: var(--surface); border: 1px solid var(--ink-2); }
-.swatch-down { background: var(--ink-2); border: 1px solid var(--ink-2); }
+.swatch-up { background: var(--surface); border: 1px solid var(--up); }
+.swatch-down { background: var(--down); border: 1px solid var(--down); }
 .swatch-line { height: 2px; border-radius: 0; background: #57534a; }
 .chart-wrap { position: relative; width: 100%; }
 #chart { display: block; width: 100%; height: auto; }
@@ -184,6 +186,19 @@ h1 { font-size: 32px; font-weight: 500; line-height: 1.3; margin: 0 0 12px; }
 .cmp-note { font-size: 11px; color: var(--ink-3); line-height: 1.6; }
 .cmp-foot { margin-top: 12px; color: var(--ink-3); font-size: 12px; line-height: 1.7; }
 .chart-foot { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); color: var(--ink-3); font-size: 12px; line-height: 1.7; }
+
+/* 历史情景对照：一张紧凑表，不与主图争视觉重心 */
+.scenario { width: 100%; border-collapse: collapse; }
+.scenario th { font-size: 11px; font-weight: 500; color: var(--ink-3); text-align: left; padding: 0 12px 8px; }
+.scenario th.num, .scenario td.num { text-align: right; }
+.scenario td { padding: 10px 12px; border-top: 1px solid var(--line-soft); font-size: 13px; color: var(--ink-2); }
+.scenario td.num b { display: block; font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.scenario td.num b.is-up { color: var(--up); }
+.scenario td.num b.is-down { color: var(--down); }
+.scenario td.num i { display: block; margin-top: 2px; font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.scenario-foot { margin-top: 12px; color: var(--ink-3); font-size: 12px; line-height: 1.7; }
+.scenario-foot .mono { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.scenario-na { padding: 8px 0; color: var(--ink-3); font-size: 13px; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
 .split > .card { margin-bottom: 20px; }

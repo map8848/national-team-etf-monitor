@@ -12,6 +12,8 @@
   var PS = D.meta.poolSize;
   var last = D.latest;
   var prev = D.daily[D.daily.length - 2] || last;
+  // 涨跌色：红涨绿跌（A 股习惯），与 styles.css 的 --up / --down 保持一致
+  var UP = '#bf4342', DOWN = '#3a7355';
 
   /* ---------- 顶部与侧栏 ---------- */
   $('#notice-text').textContent = D.meta.disclaimer + ' · 数据截至 ' + D.meta.tradeDate;
@@ -89,6 +91,28 @@
     $('#compare-strip').innerHTML = html;
   }
 
+  function renderScenario() {
+    var box = $('#scenario-table');
+    if (!box) return;
+    $('#scenario-index').textContent = idx ? idx.name : '大盘指数';
+    var sc = idx && idx.scenario;
+    if (!sc || !sc.rows || !sc.rows.length) {
+      box.innerHTML = '<div class="scenario-na">样本不足，暂不输出情景对照 <a class="fn" href="#N13">[N13]</a></div>';
+      $('#scenario-foot').textContent = '';
+      return;
+    }
+    var head = '<tr><th>情景</th><th class="num">样本</th><th class="num">后 5 日</th><th class="num">后 10 日</th><th class="num">后 20 日</th></tr>';
+    var cell = function (s) {
+      var cls = s.med > 0 ? 'is-up' : (s.med < 0 ? 'is-down' : '');
+      return '<td class="num"><b class="' + cls + '">' + signed(s.med) + '%</b><i>' + s.win + '% 为正</i></td>';
+    };
+    var body = sc.rows.map(function (r) {
+      return '<tr><td>' + esc(r.name) + '</td><td class="num">' + r.n + '</td>' + cell(r.f5) + cell(r.f10) + cell(r.f20) + '</tr>';
+    }).join('');
+    box.innerHTML = '<table class="scenario"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+    $('#scenario-foot').innerHTML = '样本池 <span class="mono">' + sc.samplePool + '</span> 个交易日（其后 20 日仍在序列内，四行样本一致）。阈值：大额净申购 ≥ <span class="mono">' + signed(sc.thresholds.p80) + ' 亿</span>，大额净赎回 ≤ <span class="mono">' + signed(sc.thresholds.p20) + ' 亿</span>。中位数与正收益占比都是历史统计，样本只有一个年度，组间差异可能落在噪声内，不构成方向预测 <a class="fn" href="#N13">[N13]</a>';
+  }
+
   function renderChart() {
     var n = range === 'all' ? D.daily.length : Math.min(Number(range), D.daily.length);
     chartRows = D.daily.slice(-n);
@@ -132,11 +156,11 @@
       s.push('<text x="' + (pad.l - 10) + '" y="' + (y + 3.5) + '" text-anchor="end" font-family="ui-monospace, monospace" font-size="11" fill="#929087">' + fmt(v, 0) + '</text>');
     });
     s.push('<text x="' + (pad.l + 4) + '" y="' + (kTop + 14) + '" font-family="ui-monospace, monospace" font-size="11" fill="#a8a59c">' + esc(idx ? idx.name : '大盘指数') + ' 日 K · 点</text>');
-    // 蜡烛：中性墨色，收涨空心、收跌实心；强调色只留给净申购
+    // 蜡烛：红涨绿跌，收涨空心、收跌实心；净申购柱继续用强调色
     kRows.forEach(function (k, i) {
       if (!k) return;
       var x = xAt(i), up = k.c >= k.o;
-      var col = '#57534a';
+      var col = up ? UP : DOWN;
       var yO = yK(k.o), yC = yK(k.c);
       s.push('<line x1="' + x + '" y1="' + yK(k.h) + '" x2="' + x + '" y2="' + yK(k.l) + '" stroke="' + col + '" stroke-width="1"/>');
       var top = Math.min(yO, yC), h = Math.max(1, Math.abs(yC - yO));
@@ -193,7 +217,7 @@
     var line = $('#hover-line');
     if (line) { line.setAttribute('x1', chartGeom.xAt(i)); line.setAttribute('x2', chartGeom.xAt(i)); line.setAttribute('opacity', '0.55'); }
     var kHtml = k
-      ? '<div class="tt-row"><span>' + esc(idx ? idx.name : '指数') + ' 收盘</span><b>' + fmt(k.c) + ' · ' + signed(k.pct) + '%</b></div>' +
+      ? '<div class="tt-row"><span>' + esc(idx ? idx.name : '指数') + ' 收盘</span><b>' + fmt(k.c) + ' · <span style="color:' + (k.pct >= 0 ? UP : DOWN) + '">' + signed(k.pct) + '%</span></b></div>' +
         '<div class="tt-row"><span>开 / 高 / 低</span><b>' + fmt(k.o) + ' / ' + fmt(k.h) + ' / ' + fmt(k.l) + '</b></div>'
       : '<div class="tt-row"><span>指数日 K</span><b>—</b></div>';
     tip.innerHTML = '<div class="tt-date">' + esc(r.date) + '</div>' + kHtml +
@@ -230,6 +254,7 @@
       indexId = b.dataset.index;
       reindex();
       renderCompare();
+      renderScenario();
       renderChart();
     });
   });
@@ -239,6 +264,7 @@
   } else { window.addEventListener('resize', renderChart); }
   reindex();
   renderCompare();
+  renderScenario();
   renderChart();
 
   /* ---------- 强度分与依据 ---------- */
