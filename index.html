@@ -36,7 +36,7 @@
       </a>
       <a href="#method" class="nav-item" data-nav="method">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
-        <span>口径与误差</span><span class="nav-tag">N1–N10</span>
+        <span>口径与误差</span><span class="nav-tag">N1–N12</span>
       </a>
       <a href="#sources" class="nav-item" data-nav="sources">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
@@ -73,19 +73,26 @@
       <div class="card chart-card">
         <div class="card-head">
           <div>
-            <div class="card-title">日净申购与累计净申购</div>
-            <div class="card-sub">柱：当日全池净申购，亿元 <a class="fn" href="#N1">[N1]</a> · 线：区间内累计，右轴，亿元</div>
+            <div class="card-title">大盘日 K 与全池净申购</div>
+            <div class="card-sub">上：<span id="idx-name">上证指数</span> 日 K，左轴为点 <a class="fn" href="#N11">[N11]</a> · 下：当日净申购柱，左轴亿元 <a class="fn" href="#N1">[N1]</a> · 累计线，右轴千亿元</div>
           </div>
-          <div class="legend">
-            <span class="legend-item"><i class="swatch swatch-accent"></i>净申购</span>
-            <span class="legend-item"><i class="swatch swatch-muted"></i>净赎回</span>
-            <span class="legend-item"><i class="swatch swatch-line"></i>累计</span>
+          <div class="head-controls" role="group" aria-label="对照指数">
+            <button class="seg is-active" data-index="sh000001" type="button">上证指数</button>
+            <button class="seg" data-index="sh000300" type="button">沪深300</button>
           </div>
+        </div>
+        <div class="legend chart-legend">
+          <span class="legend-item"><i class="swatch swatch-up"></i>收涨 · 空心</span>
+          <span class="legend-item"><i class="swatch swatch-down"></i>收跌 · 实心</span>
+          <span class="legend-item"><i class="swatch swatch-accent"></i>净申购</span>
+          <span class="legend-item"><i class="swatch swatch-muted"></i>净赎回</span>
+          <span class="legend-item"><i class="swatch swatch-line"></i>累计</span>
         </div>
         <div class="chart-wrap" id="chart-wrap">
-          <svg id="chart" role="img" aria-label="日频净申购柱状图与累计净申购折线"></svg>
+          <svg id="chart" role="img" aria-label="大盘日K线与全池净申购、累计净申购上下对照图"></svg>
           <div class="tooltip" id="tooltip" hidden></div>
         </div>
+        <div class="compare-strip" id="compare-strip"></div>
         <div class="chart-foot" id="chart-foot"></div>
       </div>
 
@@ -162,7 +169,7 @@
     <section id="method" class="section">
       <header class="page-head">
         <div>
-          <div class="eyebrow">口径与误差 · N1–N10</div>
+          <div class="eyebrow">口径与误差 · N1–N12</div>
           <h1>每个数字怎么来的</h1>
           <p class="lede">页面上的脚注编号都指向这里。改口径时先改这一页，再改脚本。</p>
         </div>

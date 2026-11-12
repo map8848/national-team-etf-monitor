@@ -33,8 +33,10 @@
 4. **两个口径不可相加**：ETF 底层仍是股票，个股前十大流通股东口径与 ETF 份额口径存在重复计算。本页不含个股持仓。
 5. **主体归一**：定期报告里的股东名称变体极多，`config/entities.json` 用 11 条带 `exclude` 的规则归一到四层主体。纯关键词匹配会把「同瑞汇金3期私募」「…ETF联接基金」误判为国家队，本页一律排除。
 6. **份额跳变**：单日大幅变动也可能包含份额折算、合并等非申赎因素，本页未做剔除，只如实呈现并在图表下方标注。
+7. **大盘对照**：主图同一张 SVG 内上下双面板，上方是上证指数或沪深300 的日 K，下方是当日净申购柱与区间累计线，共用交易日历与悬停竖线。指数行情比份额日报多 1–2 个交易日，图上按份额交易日历对齐，多出的行情日不画。腾讯 fqkline 与东财 push2his 的 OHLC 逐日比对，最大偏差 0.01 点。
+8. **相关不等于归因**：图下的相关系数由「当日指数涨跌幅 × 当日全池净申购」逐日配对计算，包含份额折算跳变日；「逆势日」只表示指数收跌且当日净申购为正，不表示买方身份。对照读数按全年计算，不随上方时间范围切换。
 
-页面里 `N1`–`N10` 的脚注编号都指向「口径与误差」章节，每条都写清了算法与边界。
+页面里 `N1`–`N12` 的脚注编号都指向「口径与误差」章节，每条都写清了算法与边界。
 
 ## 数据源
 
@@ -42,7 +44,10 @@
 | --- | --- | --- |
 | 上海证券交易所 ETF 份额日报 | L1 份额校验 | 公开数据，`TOT_VOL` 单位万份 |
 | [H-Jett/etf-radar](https://github.com/H-Jett/etf-radar) 的 Pages 快照 | 日频份额序列、收盘价、实名持有人锚点 | MIT |
-| 东方财富 push2 行情 | 510300 份额交叉校验 | 公开接口 |
+| 腾讯证券 fqkline | 上证指数、沪深300 日 K（主源） | 公开接口，未复权 |
+| 东方财富 push2his K 线 | 指数日 K 双源比对；push2 行情另用于 510300 份额校验 | 公开接口 |
+
+指数日 K 的两路抓取标为 `optional`：抓不到时只告警，不阻断日更，沿用仓库里已提交的快照。理由是对照层不需要成为主数据可用性的单点故障，GitHub Actions 境外出网抓国内行情接口可能失败。
 
 三方交叉校验：`sse/2026-11-10` 里 510300 的 `TOT_VOL = 4634238.77` 万份 = 46,342,387,700 份；本页序列末值 46,342,387,700 份；东财 `stock/get` 的 `f84 = 46,342,387,712` 份。差异来自浮点取整，不是口径分歧。
 
@@ -60,7 +65,7 @@ node scripts/build.mjs
 # 或一步到位
 npm run refresh
 
-# 冒烟自检：用最小 DOM 执行 app.js，确认九个数据区块都能渲染
+# 冒烟自检：用最小 DOM 执行 app.js，确认十个数据区块都能渲染
 npm run smoke
 ```
 
@@ -78,19 +83,30 @@ GITHUB_TOKEN=<你的 PAT> node scripts/publish.mjs
 
 用 REST API 创建的初始提交与本地 `git` 历史不同 sha，日更由远端 Actions 自己提交；若之后想在本机继续用 git 推拉，先 `git remote add origin <远端地址>`，再 `git fetch --depth=1 origin && git reset --hard origin/main`。
 
+后续改动上线用 `scripts/sync.mjs`（同样零依赖、走 REST API，不需要 git 出网）：
+
+```bash
+GITHUB_TOKEN=<你的 PAT> node scripts/sync.mjs
+# 先看会传哪些文件、不联网
+node scripts/sync.mjs --dry-run
+```
+
+它读远端 `main` 的当前 head，把工作区文件全量打成新 tree，基于该 head 建一个提交并移动分支引用；不会覆盖 Actions 机器人已提交的历史。push 会触发 Pages 重新部署。脚本只做同步，不重建仓库、不改 Pages 设置。token 同样只在内存中使用，用完请立即撤销。
+
 ## 目录
 
 ```
-index.html                 静态页面（自绘 SVG 图表，零依赖）
+index.html                 静态页面（自绘 SVG 双面板图表，零依赖）
 styles.css                 样式
 app.js                    渲染逻辑
 config/entities.json       主体分层字典（11 条规则 + 排除项）
 config/pool.json           核心宽基标的池与边界说明
-scripts/gather.mjs         采集：交易所日报 + Pages 快照 → data/raw/
-scripts/build.mjs          计算：逐只净申购 / 强度分 / 校准 → data/
+scripts/gather.mjs         采集：交易所日报 + Pages 快照 + 指数日 K → data/raw/
+scripts/build.mjs          计算：逐只净申购 / 大盘对照 / 强度分 / 校准 → data/
 scripts/smoke.cjs          冒烟自检（最小 DOM 模拟，零依赖）
 scripts/publish.mjs        一次性发布：建仓 / 上传 / 开 Pages / 触发日更
-data/raw/                  原始快照（33 个 JSON）
+scripts/sync.mjs           后续同步：基于远端 head 推一个新提交
+data/raw/                  原始快照（38 个 JSON，含 4 个指数日 K 与 5 个上交所校验）
 data/dashboard.json        派生数据（供其他消费者）
 data/dashboard.js          同一份数据，供页面直接 <script> 引入
 .github/workflows/daily.yml 每日更新
@@ -104,6 +120,7 @@ data/dashboard.js          同一份数据，供页面直接 <script> 引入
 - 深市份额来自数据源的深交所日报，本版未做独立回源校验；上交所标的做了逐日校验。
 - 未接入分钟级成交、IOPV、两市成交额与融资余额，因此「尾盘放量」「折溢价」「成交额分位」这几条依据明确标为未接入，不参与打分。
 - 事件流只作背景标注，不进入强度打分。
+- 大盘对照只做同日并列观察与描述性相关，不做因果推断；东财 K 线接口偶发不可达时沿用已提交的快照，会在 `data/raw/` 里留下旧日期的文件。
 - 数据快照截至 2026-11-10，交易日数 205。
 
 ## 与同类项目的差别

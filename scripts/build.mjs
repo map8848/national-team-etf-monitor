@@ -19,6 +19,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = path.join(ROOT, 'data', 'raw');
 const DATA = path.join(ROOT, 'data');
 const read = (f) => JSON.parse(fs.readFileSync(path.join(RAW, f), 'utf8'));
+const readMaybe = (f) => { try { return read(f); } catch { return null; } };
 const readConfig = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'config', f), 'utf8'));
 const round = (n, d = 2) => Number(n.toFixed(d));
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
@@ -229,6 +230,121 @@ const calendar = {
   },
 };
 
+// ---- 大盘指数日 K（真实 OHLC，双源交叉校验） -------------------------------
+// 腾讯 fqkline: [日期, 开, 收, 高, 低, 量]；东财 kline: 日期,开,收,高,低,量,额,振幅,涨跌幅,涨跌额,换手
+// 指数行情比份额日报多 1–2 个交易日，按份额交易日历 dates 对齐，多出的行情日不纳入。
+const INDEX_DEFS = [
+  { id: 'sh000001', code: '000001', name: '上证指数', tx: 'sh000001', em: '1.000001' },
+  { id: 'sh000300', code: '000300', name: '沪深300', tx: 'sh000300', em: '1.000300' },
+];
+
+function parseTxKline(j, key) {
+  if (!j || !j.data || !j.data[key]) return null;
+  const obj = j.data[key];
+  const arr = obj.day || obj.qfqday || obj.data;
+  if (!Array.isArray(arr)) return null;
+  const out = new Map();
+  for (const r of arr) {
+    if (!Array.isArray(r) || r.length < 5) continue;
+    out.set(String(r[0]), { o: Number(r[1]), c: Number(r[2]), h: Number(r[3]), l: Number(r[4]) });
+  }
+  return out;
+}
+
+function parseEmKline(j) {
+  if (!j || !j.data || !Array.isArray(j.data.klines)) return null;
+  const out = new Map();
+  for (const line of j.data.klines) {
+    const p = String(line).split(',');
+    if (p.length < 5) continue;
+    out.set(p[0], { o: Number(p[1]), c: Number(p[2]), h: Number(p[3]), l: Number(p[4]) });
+  }
+  return out;
+}
+
+function pearson(xs, ys) {
+  const n = xs.length;
+  if (n < 3) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < n; i++) {
+    const a = xs[i] - mx, b = ys[i] - my;
+    num += a * b; dx += a * a; dy += b * b;
+  }
+  return dx > 0 && dy > 0 ? num / Math.sqrt(dx * dy) : null;
+}
+
+function compareStats(rows, seriesDaily, limit) {
+  const byDate = new Map(rows.map((r) => [r.date, r]));
+  const use = limit ? seriesDaily.slice(-limit) : seriesDaily;
+  const xs = [], ys = [];
+  let down = 0, up = 0, flat = 0, contrarian = 0, downNet = 0, upNet = 0;
+  for (const d of use) {
+    const k = byDate.get(d.date);
+    if (!k || !isFinite(k.pct)) continue;
+    xs.push(k.pct); ys.push(d.netYi);
+    if (k.pct < -0.0001) {
+      down++; downNet += d.netYi;
+      if (d.netYi > 0) contrarian++;
+    } else if (k.pct > 0.0001) { up++; upNet += d.netYi; }
+    else flat++;
+  }
+  const corr = pearson(xs, ys);
+  return {
+    sessions: xs.length,
+    downDays: down, upDays: up, flatDays: flat,
+    contrarianDays: contrarian,
+    downNetYi: round(downNet, 2), upNetYi: round(upNet, 2),
+    corr: corr == null ? null : round(corr, 3),
+  };
+}
+
+const indices = [];
+for (const def of INDEX_DEFS) {
+  const tx = parseTxKline(readMaybe(`index-tx-${def.code}-${YEAR}.json`), def.tx);
+  const em = parseEmKline(readMaybe(`index-em-${def.code}-${YEAR}.json`));
+  const base = tx || em;
+  if (!base) continue;
+  const rows = [];
+  let prevClose = null;
+  let crossMatched = 0;
+  let crossMaxDiff = 0;
+  for (const d of dates) {
+    const k = base.get(d);
+    if (!k || ![k.o, k.c, k.h, k.l].every(isFinite)) continue;
+    if (tx && em && em.has(d)) {
+      const e = em.get(d);
+      crossMatched++;
+      for (const f of ['o', 'c', 'h', 'l']) crossMaxDiff = Math.max(crossMaxDiff, Math.abs(k[f] - e[f]));
+    }
+    rows.push({
+      date: d,
+      o: round(k.o, 2), c: round(k.c, 2), h: round(k.h, 2), l: round(k.l, 2),
+      pct: prevClose ? round((k.c / prevClose - 1) * 100, 4) : 0,
+    });
+    prevClose = k.c;
+  }
+  if (!rows.length) {
+    console.log(`index ${def.name} 快照与当前年份不匹配，跳过`);
+    continue;
+  }
+  const first = rows[0], last = rows[rows.length - 1];
+  indices.push({
+    id: def.id, code: def.code, name: def.name,
+    source: tx ? '腾讯证券 fqkline（东财 push2his 交叉校验）' : '东方财富 push2his',
+    rows,
+    coverage: { first: first?.date ?? null, last: last?.date ?? null, sessions: rows.length, calendar: dates.length },
+    periodPct: first && last ? round((last.c / first.o - 1) * 100, 2) : null,
+    lastClose: last?.c ?? null,
+    crossCheck: { matched: crossMatched, maxDiff: round(crossMaxDiff, 4), unit: '指数点' },
+    compare: {
+      all: compareStats(rows, daily, 0),
+      recent60: compareStats(rows, daily, 60),
+    },
+  });
+}
+
 // ---- 事件流：只作背景标注，不进入打分 -------------------------------------
 const events = [
   { date: '2025-04-08', kind: 'announcement', title: '中央汇金公告明确自身「国家队」与类平准基金角色', source: '腾讯新闻', url: 'https://news.qq.com/rain/a/20250924A017AB00' },
@@ -251,6 +367,8 @@ const notes = [
   { id: 'N8', title: '两个口径不可相加', body: 'ETF 底层仍是股票。个股前十大流通股东口径与 ETF 份额口径存在重复计算，本页不含个股持仓，也不与个股口径合并。' },
   { id: 'N9', title: '标的池边界', body: poolCfg.boundary },
   { id: 'N10', title: '主体归一', body: 'config/entities.json 把定期报告里的股东名称归一到 11 类主体，并带排除规则。竞品曾把「同瑞汇金3期私募」「…ETF联接基金」误判为国家队，本页对含「汇金」「证金」字样的私募与联接基金一律排除。' },
+  { id: 'N11', title: '大盘指数口径', body: '上证指数（000001）与沪深300（000300）的日 K 取自腾讯证券 fqkline，东方财富 push2his 同字段交叉校验；未复权，只用于点位与涨跌方向对照。指数行情比份额日报多 1–2 个交易日，图上按份额交易日历对齐，多出的行情日不画。指数涨跌幅按前一日收盘计算，与交易所公布的涨跌幅可能有小数级差异。' },
+  { id: 'N12', title: '对比不等于归因', body: '上下两个面板共享同一交易日，用来观察「指数下跌当天是否伴随净申购」，不是因果关系。相关系数由当日指数涨跌幅与全池净申购逐日配对计算，含份额折算等跳变日，只作方向参考。「逆势日」定义为指数收跌且当日净申购为正，同样不表示买方身份。' },
 ];
 
 const out = {
@@ -264,12 +382,13 @@ const out = {
     sessions: daily.length,
     firstDate: dates[0],
     lastDate: dates.at(-1),
-    methodVersion: '1.0.0',
+    methodVersion: '1.1.0',
     disclaimer: '本页为公开数据测算，非官方披露',
     sources: [
       { name: '上交所 ETF 份额日报', url: 'https://www.sse.com.cn/market/fund/volume/etf/index.html', role: 'L1 份额校验' },
       { name: 'H-Jett/etf-radar Pages 快照（MIT）', url: 'https://github.com/H-Jett/etf-radar', role: '日频份额与收盘价序列、实名持有人锚点' },
-      { name: '东方财富 push2 行情', url: 'https://push2.eastmoney.com/api/qt/stock/get', role: '510300 份额交叉校验' },
+      { name: '腾讯证券 fqkline', url: 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get', role: '上证指数与沪深300 日 K（主源）' },
+      { name: '东方财富 push2his K 线', url: 'https://push2his.eastmoney.com/api/qt/stock/kline/get', role: '指数日 K 交叉校验；push2 行情另用于 510300 份额校验' },
     ],
   },
   layers: {
@@ -284,6 +403,7 @@ const out = {
     return { code, name: e?.name || etfName.get(code) || code, exchange: e?.exchange || null, group: g?.name || '其他', indexName: e?.index_name || null };
   }),
   daily,
+  indices,
   latest,
   topIn,
   topOut,
@@ -307,4 +427,5 @@ console.log(`max inflow    ${maxIn.date}  ${maxIn.netYi} 亿`);
 console.log(`max outflow   ${maxOut.date}  ${maxOut.netYi} 亿`);
 console.log(`cum since ${dates[1]}  ${latest.cumYi} 亿`);
 console.log(`anchors       ${anchors.length}  conflicts ${conflictCount}  sse checks ${sseChecks.length} (max diff ${Math.max(0, ...sseChecks.map((c) => c.diffPct))}%)`);
+for (const ix of indices) console.log(`index         ${ix.name}  ${ix.coverage.first} → ${ix.coverage.last}  ${ix.coverage.sessions}/${ix.coverage.calendar} 日  cross ${ix.crossCheck.matched} 日 maxDiff ${ix.crossCheck.maxDiff} 点  corr(all) ${ix.compare.all.corr}  contrarian ${ix.compare.all.contrarianDays}/${ix.compare.all.downDays}`);
 console.log(`written       data/dashboard.json (${(fs.statSync(path.join(DATA, 'dashboard.json')).size / 1024).toFixed(0)} KB)`);

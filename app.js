@@ -47,25 +47,72 @@
     stat('交易所口径校验', '实测 · L1', D.calibration.check.length, '项', '上交所日报 vs 本页序列，最大偏差 <span class="mono">' + fmt(maxCheck, 4) + '%</span>') +
     stat('归因误差', '校准 · L3', '未闭合', '', '待 ' + D.calibration.nextReportWindow + ' 才能回测', 'is-neg');
 
-  /* ---------- 主图 ---------- */
+  /* ---------- 主图：大盘日 K 与净申购上下对照 ---------- */
   var wrap = $('#chart-wrap');
   var svg = $('#chart');
   var tip = $('#tooltip');
   var chartRows = [];
   var chartGeom = null;
   var range = 'all';
+  var indexId = 'sh000001';
+  var indices = D.indices || [];
+  var idx = null;
+  var idxByDate = {};
 
   function niceMax(v) { if (v <= 0) return 1; var e = Math.pow(10, Math.floor(Math.log10(v))); var m = v / e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e; }
+
+  function reindex() {
+    idx = indices.filter(function (x) { return x.id === indexId; })[0] || indices[0] || null;
+    idxByDate = {};
+    if (idx) idx.rows.forEach(function (r) { idxByDate[r.date] = r; });
+    $('#idx-name').textContent = idx ? idx.name : '大盘指数';
+  }
+
+  function renderCompare() {
+    if (!idx) {
+      $('#compare-strip').innerHTML = '<div class="cmp-foot">指数快照暂缺，全年对照读数不可用 <a class="fn" href="#N12">[N12]</a></div>';
+      return;
+    }
+    var a = idx.compare.all, b = idx.compare.recent60;
+    var cells = [
+      ['区间涨跌', signed(idx.periodPct) + '%', idx.coverage.first + ' 开盘至 ' + idx.coverage.last + ' 收盘'],
+      ['涨跌幅 × 净申购相关', a.corr == null ? '—' : signed(a.corr, 3), '全年 ' + a.sessions + ' 个交易日逐日配对'],
+      ['逆势日', a.contrarianDays + ' / ' + a.downDays, '指数收跌且当日净申购为正'],
+      ['近 60 日相关', b.corr == null ? '—' : signed(b.corr, 3), b.sessions + ' 个交易日，短窗口波动大'],
+    ];
+    var html = '<div class="cmp-grid">' + cells.map(function (c) {
+      return '<div class="cmp-item"><span class="cmp-label">' + esc(c[0]) + '</span>' +
+        '<b class="cmp-value">' + esc(c[1]) + '</b><span class="cmp-note">' + esc(c[2]) + '</span></div>';
+    }).join('') + '</div>';
+    html += '<div class="cmp-foot">全年对照读数，不随上方时间范围切换。指数下跌 ' + a.downDays + ' 日的全池净申购合计 <span class="mono">' + signed(a.downNetYi) + '</span> 亿元，上涨 ' + a.upDays + ' 日合计 <span class="mono">' + signed(a.upNetYi) + '</span> 亿元。' +
+      idx.name + ' 日 K 由腾讯与东财双源比对，覆盖 ' + idx.crossCheck.matched + ' 日，最大偏差 <span class="mono">' + fmt(idx.crossCheck.maxDiff, 2) + '</span> 点。相关不等于归因，份额变动是全市场匿名净额 <a class="fn" href="#N12">[N12]</a></div>';
+    $('#compare-strip').innerHTML = html;
+  }
 
   function renderChart() {
     var n = range === 'all' ? D.daily.length : Math.min(Number(range), D.daily.length);
     chartRows = D.daily.slice(-n);
     var W = Math.max(640, wrap.clientWidth || 1000);
-    var H = 360;
+    var H = 520;
     var pad = { l: 66, r: 66, t: 16, b: 36 };
-    var iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+    var iw = W - pad.l - pad.r;
+    var kTop = pad.t, kH = 176;
+    var bTop = kTop + kH + 32;
+    var bH = H - pad.b - bTop;
+    var bBottom = bTop + bH;
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    svg.setAttribute('height', H);
+
+    var step = iw / chartRows.length;
+    var bw = Math.max(1.2, Math.min(step * 0.68, 9));
+    var xAt = function (i) { return pad.l + (i + 0.5) * step; };
+    var kRows = chartRows.map(function (r) { return idxByDate[r.date] || null; });
+
+    var kLo = Infinity, kHi = -Infinity;
+    kRows.forEach(function (k) { if (k) { if (k.l < kLo) kLo = k.l; if (k.h > kHi) kHi = k.h; } });
+    if (!isFinite(kLo)) { kLo = 0; kHi = 1; }
+    var kPad = (kHi - kLo) * 0.08 || 1;
+    kLo -= kPad; kHi += kPad;
+    var yK = function (v) { return kTop + kH - ((v - kLo) / (kHi - kLo)) * kH; };
 
     var absMax = niceMax(Math.max.apply(null, chartRows.map(function (r) { return Math.abs(r.netYi); })));
     var cum = 0;
@@ -74,24 +121,38 @@
     var cumMax = Math.max.apply(null, cums.concat([0]));
     var cumPad = (cumMax - cumMin) * 0.08 || 1;
     cumMin -= cumPad; cumMax += cumPad;
-
-    var step = iw / chartRows.length;
-    var bw = Math.max(1.4, step * 0.7);
-    var yBar = function (v) { return pad.t + ih / 2 - (v / absMax) * (ih / 2); };
-    var yCum = function (v) { return pad.t + ih - ((v - cumMin) / (cumMax - cumMin)) * ih; };
-    var xAt = function (i) { return pad.l + (i + 0.5) * step; };
+    var yBar = function (v) { return bTop + bH / 2 - (v / absMax) * (bH / 2); };
+    var yCum = function (v) { return bTop + bH - ((v - cumMin) / (cumMax - cumMin)) * bH; };
 
     var s = [];
-    // 静音网格 + 左轴
+    // 上 panel：静音网格与左轴点位
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
+      var v = kLo + (kHi - kLo) * f, y = yK(v);
+      s.push('<line x1="' + pad.l + '" y1="' + y + '" x2="' + (W - pad.r) + '" y2="' + y + '" stroke="#edeae2" stroke-width="1"/>');
+      s.push('<text x="' + (pad.l - 10) + '" y="' + (y + 3.5) + '" text-anchor="end" font-family="ui-monospace, monospace" font-size="11" fill="#929087">' + fmt(v, 0) + '</text>');
+    });
+    s.push('<text x="' + (pad.l + 4) + '" y="' + (kTop + 14) + '" font-family="ui-monospace, monospace" font-size="11" fill="#a8a59c">' + esc(idx ? idx.name : '大盘指数') + ' 日 K · 点</text>');
+    // 蜡烛：中性墨色，收涨空心、收跌实心；强调色只留给净申购
+    kRows.forEach(function (k, i) {
+      if (!k) return;
+      var x = xAt(i), up = k.c >= k.o;
+      var col = '#57534a';
+      var yO = yK(k.o), yC = yK(k.c);
+      s.push('<line x1="' + x + '" y1="' + yK(k.h) + '" x2="' + x + '" y2="' + yK(k.l) + '" stroke="' + col + '" stroke-width="1"/>');
+      var top = Math.min(yO, yC), h = Math.max(1, Math.abs(yC - yO));
+      s.push('<rect x="' + (x - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + h + '" fill="' + (up ? '#ffffff' : col) + '" stroke="' + col + '" stroke-width="1"/>');
+    });
+    // 下 panel：静音网格与左轴
     [-1, -0.5, 0, 0.5, 1].forEach(function (f) {
       var y = yBar(absMax * f);
       s.push('<line x1="' + pad.l + '" y1="' + y + '" x2="' + (W - pad.r) + '" y2="' + y + '" stroke="' + (f === 0 ? '#d6d2c7' : '#edeae2') + '" stroke-width="1"/>');
-      s.push('<text x="' + (pad.l - 10) + '" y="' + (y + 3.5) + '" text-anchor="end" font-family="ui-monospace, monospace" font-size="10.5" fill="#929087">' + signed(absMax * f, 0) + '</text>');
+      s.push('<text x="' + (pad.l - 10) + '" y="' + (y + 3.5) + '" text-anchor="end" font-family="ui-monospace, monospace" font-size="11" fill="#929087">' + signed(absMax * f, 0) + '</text>');
     });
-    // 右轴累计参考线
+    s.push('<text x="' + (pad.l + 4) + '" y="' + (bTop + 14) + '" font-family="ui-monospace, monospace" font-size="11" fill="#a8a59c">全池净申购 · 亿元</text>');
+    // 右轴累计参考
     [cumMin + cumPad, (cumMax + cumMin) / 2, cumMax - cumPad].forEach(function (v) {
       var y = yCum(v);
-      s.push('<text x="' + (W - pad.r + 10) + '" y="' + (y + 3.5) + '" text-anchor="start" font-family="ui-monospace, monospace" font-size="10.5" fill="#a8a59c">' + fmt(v / 1000, 1) + 'k</text>');
+      s.push('<text x="' + (W - pad.r + 10) + '" y="' + (y + 3.5) + '" text-anchor="start" font-family="ui-monospace, monospace" font-size="11" fill="#a8a59c">' + fmt(v / 1000, 1) + 'k</text>');
     });
     // 柱
     chartRows.forEach(function (r, i) {
@@ -103,22 +164,22 @@
     // 累计线
     var pts = cums.map(function (v, i) { return xAt(i) + ',' + yCum(v); }).join(' ');
     s.push('<polyline points="' + pts + '" fill="none" stroke="#57534a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>');
-    // x 轴月份标签
+    // 共享 x 轴月份标签
     var lastMonth = '';
     chartRows.forEach(function (r, i) {
       var m = r.date.slice(0, 7);
       if (m !== lastMonth) {
         lastMonth = m;
-        s.push('<line x1="' + xAt(i) + '" y1="' + (pad.t + ih) + '" x2="' + xAt(i) + '" y2="' + (pad.t + ih + 4) + '" stroke="#d6d2c7" stroke-width="1"/>');
-        s.push('<text x="' + xAt(i) + '" y="' + (pad.t + ih + 18) + '" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" fill="#929087">' + r.date.slice(5, 7) + '月</text>');
+        s.push('<line x1="' + xAt(i) + '" y1="' + bBottom + '" x2="' + xAt(i) + '" y2="' + (bBottom + 4) + '" stroke="#d6d2c7" stroke-width="1"/>');
+        s.push('<text x="' + xAt(i) + '" y="' + (bBottom + 20) + '" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" fill="#929087">' + r.date.slice(5, 7) + '月</text>');
       }
     });
-    s.push('<line id="hover-line" x1="0" y1="' + pad.t + '" x2="0" y2="' + (pad.t + ih) + '" stroke="#2e5a7a" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>');
+    s.push('<line id="hover-line" x1="0" y1="' + kTop + '" x2="0" y2="' + bBottom + '" stroke="#2e5a7a" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>');
     svg.innerHTML = s.join('');
-    chartGeom = { W: W, H: H, pad: pad, iw: iw, ih: ih, step: step, xAt: xAt, cums: cums };
+    chartGeom = { W: W, H: H, pad: pad, iw: iw, step: step, xAt: xAt, cums: cums, kRows: kRows };
 
     var f = chartRows[0].date + ' — ' + chartRows[chartRows.length - 1].date;
-    $('#chart-foot').innerHTML = '区间 ' + f + ' <span class="dim">·</span> 共 ' + chartRows.length + ' 个交易日。左轴为当日净申购（亿元），右轴为区间累计净申购（千亿元）。份额跳变也可能包含份额折算等非申赎因素，本页未做剔除 <a class="fn" href="#N1">[N1]</a>';
+    $('#chart-foot').innerHTML = '区间 ' + f + ' <span class="dim">·</span> 共 ' + chartRows.length + ' 个交易日。上下面板共用同一交易日历，指数行情比份额日报多出的交易日不画 <a class="fn" href="#N11">[N11]</a>；上左轴为点位，下左轴为当日净申购（亿元），下右轴为区间累计（千亿元）。份额跳变也可能包含份额折算等非申赎因素，本页未做剔除 <a class="fn" href="#N1">[N1]</a>';
   }
 
   wrap.addEventListener('mousemove', function (ev) {
@@ -128,10 +189,15 @@
     var mx = (ev.clientX - box.left) * scale;
     var i = Math.floor((mx - chartGeom.pad.l) / chartGeom.step);
     if (i < 0 || i >= chartRows.length) { tip.hidden = true; return; }
-    var r = chartRows[i];
+    var r = chartRows[i], k = chartGeom.kRows[i];
     var line = $('#hover-line');
     if (line) { line.setAttribute('x1', chartGeom.xAt(i)); line.setAttribute('x2', chartGeom.xAt(i)); line.setAttribute('opacity', '0.55'); }
-    tip.innerHTML = '<div class="tt-date">' + esc(r.date) + '</div>' +
+    var kHtml = k
+      ? '<div class="tt-row"><span>' + esc(idx ? idx.name : '指数') + ' 收盘</span><b>' + fmt(k.c) + ' · ' + signed(k.pct) + '%</b></div>' +
+        '<div class="tt-row"><span>开 / 高 / 低</span><b>' + fmt(k.o) + ' / ' + fmt(k.h) + ' / ' + fmt(k.l) + '</b></div>'
+      : '<div class="tt-row"><span>指数日 K</span><b>—</b></div>';
+    tip.innerHTML = '<div class="tt-date">' + esc(r.date) + '</div>' + kHtml +
+      '<div class="tt-sep"></div>' +
       '<div class="tt-row"><span>当日净申购</span><b>' + signed(r.netYi) + ' 亿</b></div>' +
       '<div class="tt-row"><span>区间累计</span><b>' + signed(chartGeom.cums[i]) + ' 亿</b></div>' +
       '<div class="tt-row"><span>同步只数</span><b>' + r.breadth + '/' + PS + '</b></div>' +
@@ -148,12 +214,22 @@
     var line = $('#hover-line'); if (line) line.setAttribute('opacity', '0');
   });
 
-  $$('.seg').forEach(function (b) {
+  $$('.seg[data-range]').forEach(function (b) {
     b.addEventListener('click', function () {
-      $$('.seg').forEach(function (x) { x.classList.remove('is-active'); });
+      $$('.seg[data-range]').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       range = b.dataset.range;
       $('#head-range').textContent = range === 'all' ? '2026 年完整序列' : '近 ' + range + ' 个交易日';
+      renderChart();
+    });
+  });
+  $$('.seg[data-index]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $$('.seg[data-index]').forEach(function (x) { x.classList.remove('is-active'); });
+      b.classList.add('is-active');
+      indexId = b.dataset.index;
+      reindex();
+      renderCompare();
       renderChart();
     });
   });
@@ -161,6 +237,8 @@
     var ro = new ResizeObserver(function () { renderChart(); });
     ro.observe(wrap);
   } else { window.addEventListener('resize', renderChart); }
+  reindex();
+  renderCompare();
   renderChart();
 
   /* ---------- 强度分与依据 ---------- */

@@ -33,6 +33,7 @@ try {
 const checks = [
   ['stats', cache.get('#stats')],
   ['chart', cache.get('#chart')],
+  ['compare-strip', cache.get('#compare-strip')],
   ['cal-stats', cache.get('#cal-stats')],
   ['reasons', cache.get('#reasons')],
   ['anchor-table tbody', cache.get('#anchor-table tbody')],
@@ -48,5 +49,7 @@ for (const [name, el] of checks) {
   if (len <= 40) bad++;
 }
 console.log('notice:', cache.get('#notice-text').textContent);
+console.log('index:', cache.get('#idx-name').textContent, '· indices in data:', (D.indices || []).length);
 console.log('chart-foot:', cache.get('#chart-foot').innerHTML.slice(0, 90));
 if (bad) process.exit(1);
+if (!(D.indices || []).length) { console.error('SMOKE FAIL: 缺少 indices'); process.exit(1); }

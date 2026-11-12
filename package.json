@@ -8,6 +8,7 @@
     "gather": "node scripts/gather.mjs",
     "build": "node scripts/build.mjs",
     "smoke": "node scripts/smoke.cjs",
-    "refresh": "node scripts/gather.mjs && node scripts/build.mjs"
+    "refresh": "node scripts/gather.mjs && node scripts/build.mjs",
+    "sync": "node scripts/sync.mjs"
   }
 }

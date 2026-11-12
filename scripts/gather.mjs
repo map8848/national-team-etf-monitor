@@ -38,10 +38,10 @@ function get(url, headers = {}, timeout = 15000) {
   });
 }
 
-async function retry(url, headers, tries = 3) {
+async function retry(url, headers, tries = 5) {
   let last;
   for (let i = 0; i < tries; i++) {
-    try { return await get(url, headers); } catch (e) { last = e; await new Promise(r => setTimeout(r, 400 * (i + 1))); }
+    try { return await get(url, headers); } catch (e) { last = e; await new Promise(r => setTimeout(r, 600 * (i + 1))); }
   }
   throw last;
 }
@@ -71,6 +71,7 @@ function shiftDate(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
+// job 第 4 位 optional=true 表示抓不到时只告警，不阻断日更，沿用仓库里已提交的快照。
 const jobs = [
   ['universe.json', `${PAGES}/universe.json`, {}],
   ['etfs.json', `${PAGES}/etfs.json`, {}],
@@ -80,6 +81,25 @@ const jobs = [
   ['holders-periods.json', `${PAGES}/holders/periods.json`, {}],
 ];
 for (const code of POOL) jobs.push([`series-${code}-${YEAR}.json`, `${PAGES}/series/${code}/${YEAR}.json`, {}]);
+
+// 大盘指数日 K（OHLC）：腾讯行情为主源，东方财富为交叉校验。两者都按份额交易日历对齐。
+const INDEXES = [
+  { code: '000001', tx: 'sh000001', em: '1.000001', name: '上证指数' },
+  { code: '000300', tx: 'sh000300', em: '1.000300', name: '沪深300' },
+];
+const EM_FIELDS = 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61';
+for (const ix of INDEXES) {
+  jobs.push([
+    `index-tx-${ix.code}-${YEAR}.json`,
+    `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${ix.tx},day,${YEAR}-01-01,${tradeDate},320,qfq`,
+    {}, true,
+  ]);
+  jobs.push([
+    `index-em-${ix.code}-${YEAR}.json`,
+    `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${ix.em}&klt=101&fqt=0&beg=${YEAR}0101&end=${tradeDate.replace(/-/g, '')}&fields1=f1,f2,f3,f4,f5,f6&fields2=${EM_FIELDS}`,
+    { Referer: 'https://quote.eastmoney.com/' }, true,
+  ]);
+}
 
 // 上交所官方逐日份额快照（L1 实测校验用）：最新交易日 + 前 1 / 7 / 25 个自然日
 for (const off of [0, -1, -7, -25]) {
@@ -94,13 +114,13 @@ let cursor = 0;
 await new Promise((resolve) => {
   const launch = () => {
     while (active < 6 && cursor < jobs.length) {
-      const [file, url, headers] = jobs[cursor++];
+      const [file, url, headers, optional] = jobs[cursor++];
       active++;
       retry(url, headers).then((text) => {
         try { writeRaw(file, text); } catch (e) { throw new Error(`NOT JSON ${file}: ${String(text).slice(0, 90)}`); }
         results.push({ file, ok: true, bytes: text.length });
       }).catch((e) => {
-        results.push({ file, ok: false, error: String(e.message || e) });
+        results.push({ file, ok: false, optional: !!optional, error: String(e.message || e) });
       }).finally(() => { active--; if (cursor >= jobs.length && active === 0) resolve(); else launch(); });
     }
   };
@@ -108,9 +128,11 @@ await new Promise((resolve) => {
 });
 
 for (const r of results.sort((a, b) => a.file.localeCompare(b.file))) {
-  console.log(r.ok ? `OK   ${r.file} (${r.bytes}B)` : `FAIL ${r.file} :: ${r.error}`);
+  if (r.ok) console.log(`OK   ${r.file} (${r.bytes}B)`);
+  else console.log(`${r.optional ? 'SKIP' : 'FAIL'} ${r.file} :: ${r.error}${r.optional ? '（沿用已提交快照）' : ''}`);
 }
 const ok = results.filter(r => r.ok).length;
-console.log(`\n${ok}/${results.length} files written to data/raw/`);
+const fatal = results.filter(r => !r.ok && !r.optional).length;
+console.log(`\n${ok}/${results.length} files written to data/raw/  fatal failures ${fatal}`);
 console.log(`meta.trade_date = ${tradeDate}  year = ${YEAR}  pool = ${POOL.length}`);
-if (ok < results.length) process.exitCode = 1;
+if (fatal > 0) process.exitCode = 1;
