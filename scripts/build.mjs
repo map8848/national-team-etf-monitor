@@ -426,14 +426,20 @@ for (const ix of indices) {
 }
 
 // ---- 事件流：只作背景标注，不进入打分 -------------------------------------
-const events = [
-  { date: '2025-04-08', kind: 'announcement', title: '中央汇金公告明确自身「国家队」与类平准基金角色', source: '腾讯新闻', url: 'https://news.qq.com/rain/a/20250924A017AB00' },
-  { date: '2026-07-19', kind: 'announcement', title: '中国国新、中国诚通公告合计约 600 亿元增持 A 股，其中国新相关主体超 500 亿元、诚通近百亿元', source: '东方财富 / 深圳商报', url: 'https://finance.eastmoney.com/a/202611023918794429.html' },
-  { date: '2026-10-31', kind: 'press', title: '证券时报：19 个交易日股票型 ETF 资金净流入近 4000 亿元，9/28–10/23 的 15 个交易日近 3200 亿元', source: '证券时报', url: 'https://www.stcn.com/article/detail/4315831.html' },
-  { date: '2026-11-02', kind: 'policy', title: '央行会同金融监管总局、证监会召开座谈会，股票回购增持再贷款由阶段性安排转为长期制度性安排，利率由 1.25% 下调至 1%', source: '新浪财经', url: 'https://finance.sina.com.cn/stock/y/2026-11-03/doc-inixmhha9937891.shtml' },
-  { date: '2026-11-03', kind: 'policy', title: '开展证券、基金、保险公司互换便利（SFISF）操作，期限 1 年可展期', source: '新浪财经', url: 'https://finance.sina.com.cn/stock/y/2026-11-03/doc-inixmhha9937891.shtml' },
-  { date: '2026-11-03', kind: 'press', title: '澎湃：2026Q3 汇金、证金、证金资管、外管局平台个股持仓数量全部零变动；社保现身 605 只、增持 365 只、新进 174 只', source: '澎湃新闻', url: 'https://www.thepaper.cn/newsDetail_forward_34390410' },
-];
+// 数据在 config/events.json。日更只读不抓：新闻与公告没有可靠的自动采集通道，
+// 自动抓取会把转载、重复与未核实内容带进本页，因此改为人工核实后追加。
+const eventsFile = path.join(ROOT, 'config', 'events.json');
+let events = [];
+try {
+  const raw = JSON.parse(fs.readFileSync(eventsFile, 'utf8'));
+  const list = Array.isArray(raw) ? raw : (raw.events || []);
+  events = list.filter((e) => e && e.date && e.title && e.url);
+  const dropped = list.length - events.length;
+  if (dropped > 0) console.log(`events        丢弃 ${dropped} 条缺少 date/title/url 的记录`);
+  events.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+} catch (e) {
+  throw new Error(`config/events.json 读取失败：${e.message}`);
+}
 
 // ---- 口径说明 -------------------------------------------------------------
 const notes = [

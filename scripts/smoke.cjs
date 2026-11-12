@@ -57,6 +57,10 @@ console.log('index:', cache.get('#idx-name').textContent, '· indices in data:',
 console.log('chart-foot:', cache.get('#chart-foot').innerHTML.slice(0, 90));
 if (bad) process.exit(1);
 if (!(D.indices || []).length) { console.error('SMOKE FAIL: 缺少 indices'); process.exit(1); }
+const ev = D.events || [];
+if (ev.length < 6) { console.error('SMOKE FAIL: 事件流少于 6 条'); process.exit(1); }
+if (ev.some((e) => !e.date || !e.title || !e.url)) { console.error('SMOKE FAIL: 事件缺少 date/title/url'); process.exit(1); }
+console.log('events:', ev.length, '条，全部有出处 ·', ev[ev.length - 1].date, ev[ev.length - 1].source);
 const sc = (D.indices || []).map((i) => i.scenario).filter(Boolean);
 if (!sc.length) { console.error('SMOKE FAIL: 缺少 scenario'); process.exit(1); }
 if (!sc[0].windows || !sc[0].windows.length) { console.error('SMOKE FAIL: scenario 缺少 windows'); process.exit(1); }
