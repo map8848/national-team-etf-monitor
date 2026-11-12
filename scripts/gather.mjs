@@ -101,11 +101,12 @@ for (const ix of INDEXES) {
   ]);
 }
 
-// 上交所官方逐日份额快照（L1 实测校验用）：最新交易日 + 前 1 / 7 / 25 个自然日
+// 上交所官方逐日份额快照（L1 实测校验用）：最新交易日 + 前 1 / 7 / 25 个自然日。
+// 校验层失败不阻断日更：境外 CI 出口访问 query.sse.com.cn 会被 403 拦截，此时沿用仓库里已提交的快照。
 for (const off of [0, -1, -7, -25]) {
   const d = shiftDate(tradeDate, off);
   const u = `https://query.sse.com.cn/commonQuery.do?isPagination=true&pageHelp.pageSize=10000&pageHelp.pageNo=1&pageHelp.beginPage=1&pageHelp.cacheSize=1&pageHelp.endPage=1&sqlId=COMMON_SSE_ZQPZ_ETFZL_XXPL_ETFGM_SEARCH_L&STAT_DATE=${d.replace(/-/g, '')}`;
-  jobs.push([`sse-${d}.json`, u, { Referer: 'https://www.sse.com.cn/' }]);
+  jobs.push([`sse-${d}.json`, u, { Referer: 'https://www.sse.com.cn/' }, true]);
 }
 
 const results = [{ file: 'meta.json', ok: true, bytes: fs.statSync(path.join(RAW, 'meta.json')).size }];
