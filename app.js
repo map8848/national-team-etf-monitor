@@ -253,7 +253,7 @@
     chartRows.forEach(function (r, i) {
       var y0 = yBar(0), y1 = yBar(r.netYi);
       var top = Math.min(y0, y1), h = Math.max(1, Math.abs(y1 - y0));
-      var fill = r.netYi >= 0 ? '#2e5a7a' : '#bcb7ab';
+      var fill = r.netYi >= 0 ? '#2e5a7a' : '#827b6e';
       s.push('<rect x="' + (xAt(i) - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + h + '" fill="' + fill + '"/>');
     });
     // 累计线

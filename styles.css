@@ -9,7 +9,7 @@
   --ink-3: #929087;
   --accent: #2e5a7a;
   --accent-soft: #eaf0f4;
-  --muted-bar: #bcb7ab;
+  --muted-bar: #827b6e;
   --up: #bf4342;
   --down: #3a7355;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -159,13 +159,13 @@ h1 { font-size: 32px; font-weight: 500; line-height: 1.3; margin: 0 0 12px; }
 .chart-card { padding-bottom: 16px; }
 .legend { display: flex; gap: 16px; flex: none; align-items: center; flex-wrap: wrap; }
 .chart-legend { margin-bottom: 12px; }
-.legend-item { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 11px; }
-.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+.legend-item { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 11px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .swatch-accent { background: var(--accent); }
 .swatch-muted { background: var(--muted-bar); }
 .swatch-up { background: var(--surface); border: 1px solid var(--up); }
 .swatch-down { background: var(--down); border: 1px solid var(--down); }
-.swatch-line { height: 2px; border-radius: 0; background: #57534a; }
+.swatch-line { width: 16px; height: 3px; border-radius: 0; background: #57534a; }
 .chart-wrap { position: relative; width: 100%; }
 #chart { display: block; width: 100%; height: auto; }
 .tooltip {
