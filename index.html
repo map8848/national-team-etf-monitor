@@ -96,11 +96,28 @@
         <div class="chart-foot" id="chart-foot"></div>
       </div>
 
+      <div class="card signal-card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">方向读数 <span class="badge badge-plain">历史倾向</span></div>
+            <div class="card-sub">把最新一个交易日归入下列哪一类，再看这一类历史上往后 20 个交易日怎么走 <a class="fn" href="#N13">[N13]</a></div>
+          </div>
+        </div>
+        <div id="signal-box"></div>
+        <div class="signal-foot" id="signal-foot"></div>
+      </div>
+
       <div class="card scenario-card">
         <div class="card-head">
           <div>
             <div class="card-title">历史情景对照</div>
             <div class="card-sub">某类日子之后，<span id="scenario-index">上证指数</span> 往后 5 / 10 / 20 个交易日怎么走：组内中位数与正收益占比 <a class="fn" href="#N13">[N13]</a>。历史分布不构成预测</div>
+          </div>
+          <div class="head-controls" role="group" aria-label="统计窗口">
+            <button class="seg" data-scenario-range="30" type="button">近 30 日</button>
+            <button class="seg" data-scenario-range="90" type="button">近 90 日</button>
+            <button class="seg" data-scenario-range="half" type="button">近半年</button>
+            <button class="seg is-active" data-scenario-range="all" type="button">全年</button>
           </div>
         </div>
         <div id="scenario-table"></div>

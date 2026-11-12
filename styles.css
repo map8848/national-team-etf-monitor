@@ -199,6 +199,30 @@ h1 { font-size: 32px; font-weight: 500; line-height: 1.3; margin: 0 0 12px; }
 .scenario-foot { margin-top: 12px; color: var(--ink-3); font-size: 12px; line-height: 1.7; }
 .scenario-foot .mono { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .scenario-na { padding: 8px 0; color: var(--ink-3); font-size: 13px; }
+.scenario i.scenario-na { font-style: normal; }
+.scenario tbody tr.is-current td { background: var(--accent-soft); }
+.scenario tbody tr.is-current td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* 方向读数 */
+.signal-card { padding-bottom: 16px; }
+.signal-row { display: flex; align-items: flex-start; gap: 20px; }
+.signal-tag {
+  flex: none; min-width: 88px; padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-size: 16px; font-weight: 500; text-align: center; color: var(--ink-2);
+}
+.signal-tag.is-up { border-color: var(--up); color: var(--up); background: transparent; }
+.signal-tag.is-down { border-color: var(--down); color: var(--down); background: transparent; }
+.signal-main { flex: 1; min-width: 0; }
+.signal-line { font-size: 13px; line-height: 1.75; color: var(--ink-2); }
+.signal-line .mono { font-family: var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.signal-line b { font-weight: 500; color: var(--ink); }
+.signal-warn { margin-top: 8px; font-size: 12px; color: var(--ink-3); }
+.signal-foot { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); color: var(--ink-3); font-size: 12px; line-height: 1.7; }
+@media (max-width: 820px) {
+  .signal-row { flex-direction: column; gap: 12px; }
+  .signal-tag { min-width: 0; align-self: flex-start; }
+}
 
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
 .split > .card { margin-bottom: 20px; }

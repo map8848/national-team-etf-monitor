@@ -91,26 +91,95 @@
     $('#compare-strip').innerHTML = html;
   }
 
+  var scenarioRange = 'all';
+
+  function activeWindow() {
+    var sc = idx && idx.scenario;
+    if (!sc || !sc.windows || !sc.windows.length) return null;
+    for (var i = 0; i < sc.windows.length; i++) {
+      if (sc.windows[i].id === scenarioRange) return sc.windows[i];
+    }
+    return sc.windows[sc.windows.length - 1];
+  }
+
+  function bucketOf(win, cur) {
+    if (!win || !cur) return null;
+    var p80 = win.thresholds.p80, p20 = win.thresholds.p20;
+    if (cur.netYi >= p80) return 'bigBuy';
+    if (cur.netYi <= p20) return 'bigSell';
+    if (cur.netYi > 0 && cur.pct < 0) return 'contra';
+    return 'normal';
+  }
+
+  function rowById(win, id) {
+    if (!win) return null;
+    for (var i = 0; i < win.rows.length; i++) {
+      if (win.rows[i].id === id) return win.rows[i];
+    }
+    return null;
+  }
+
+  function renderSignal() {
+    var box = $('#signal-box');
+    if (!box) return;
+    var win = activeWindow();
+    var cur = idx && idx.scenario && idx.scenario.current;
+    if (!win || !cur) {
+      box.innerHTML = '<div class="scenario-na">指数快照暂缺，方向读数不可用 <a class="fn" href="#N13">[N13]</a></div>';
+      $('#signal-foot').textContent = '';
+      return;
+    }
+    var bid = bucketOf(win, cur);
+    var bucket = rowById(win, bid) || rowById(win, 'all');
+    var base = rowById(win, 'all');
+    var lean = 'neutral', leanText = '中性';
+    if (bucket && base && bucket.f20.med != null && base.f20.med != null && bucket.n >= 10) {
+      if (bucket.f20.med > base.f20.med + 0.3 && bucket.f20.win >= base.f20.win + 5) { lean = 'up'; leanText = '偏多'; }
+      else if (bucket.f20.med < base.f20.med - 0.3 && bucket.f20.win <= base.f20.win - 5) { lean = 'down'; leanText = '偏弱'; }
+    }
+    var thin = bucket && bucket.n < 10;
+
+    var lines = [];
+    lines.push('<div class="signal-line">最新 <span class="mono">' + esc(cur.date) + '</span>：全池净申购 <span class="mono">' + signed(cur.netYi) + ' 亿</span>，' + esc(idx.name) + ' <span class="mono">' + signed(cur.pct) + '%</span>，归入「' + esc(bucket ? bucket.name : '—') + '」</div>');
+    if (bucket && base) {
+      lines.push('<div class="signal-line">该情景在<b>' + esc(win.name) + '</b>窗口 n=<span class="mono">' + bucket.n + '</span>，后 20 日中位数 <span class="mono">' + signed(bucket.f20.med) + '%</span>、<span class="mono">' + bucket.f20.win + '%</span> 为正；全样本为中位数 <span class="mono">' + signed(base.f20.med) + '%</span>、<span class="mono">' + base.f20.win + '%</span> 为正</div>');
+    }
+
+    box.innerHTML = '<div class="signal-row">' +
+      '<div class="signal-tag is-' + lean + '">' + leanText + '</div>' +
+      '<div class="signal-main">' + lines.join('') + '</div>' +
+      '</div>' +
+      (thin ? '<div class="signal-warn">该情景样本不足 10 个，读数仅供参考</div>' : '');
+
+    var parts = [];
+    parts.push('读数随上方窗口切换，判定规则为：后 20 日中位数比全样本高 0.3 个百分点以上且胜率高出 5 个百分点记为偏多，反向记为偏弱，其余为中性');
+    parts.push('这是历史条件分布的位置读数，不是对未来的预测；单年样本、短窗口样本更少，组间差异可能落在噪声内');
+    parts.push('大额净申购、逆势申购、普通日三行条件可能重叠，当前日按「大额申购 → 大额赎回 → 逆势申购 → 普通日」的优先序归入一类');
+    $('#signal-foot').innerHTML = parts.join('；') + ' <a class="fn" href="#N13">[N13]</a>';
+  }
+
   function renderScenario() {
     var box = $('#scenario-table');
     if (!box) return;
     $('#scenario-index').textContent = idx ? idx.name : '大盘指数';
-    var sc = idx && idx.scenario;
-    if (!sc || !sc.rows || !sc.rows.length) {
+    var win = activeWindow();
+    if (!win) {
       box.innerHTML = '<div class="scenario-na">样本不足，暂不输出情景对照 <a class="fn" href="#N13">[N13]</a></div>';
       $('#scenario-foot').textContent = '';
       return;
     }
     var head = '<tr><th>情景</th><th class="num">样本</th><th class="num">后 5 日</th><th class="num">后 10 日</th><th class="num">后 20 日</th></tr>';
     var cell = function (s) {
+      if (!s || s.med == null) return '<td class="num"><i class="scenario-na">—</i></td>';
       var cls = s.med > 0 ? 'is-up' : (s.med < 0 ? 'is-down' : '');
       return '<td class="num"><b class="' + cls + '">' + signed(s.med) + '%</b><i>' + s.win + '% 为正</i></td>';
     };
-    var body = sc.rows.map(function (r) {
-      return '<tr><td>' + esc(r.name) + '</td><td class="num">' + r.n + '</td>' + cell(r.f5) + cell(r.f10) + cell(r.f20) + '</tr>';
+    var bid = bucketOf(win, idx.scenario.current);
+    var body = win.rows.map(function (r) {
+      return '<tr' + (r.id === bid ? ' class="is-current"' : '') + '><td>' + esc(r.name) + '</td><td class="num">' + r.n + '</td>' + cell(r.f5) + cell(r.f10) + cell(r.f20) + '</tr>';
     }).join('');
     box.innerHTML = '<table class="scenario"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
-    $('#scenario-foot').innerHTML = '样本池 <span class="mono">' + sc.samplePool + '</span> 个交易日（其后 20 日仍在序列内，四行样本一致）。阈值：大额净申购 ≥ <span class="mono">' + signed(sc.thresholds.p80) + ' 亿</span>，大额净赎回 ≤ <span class="mono">' + signed(sc.thresholds.p20) + ' 亿</span>。中位数与正收益占比都是历史统计，样本只有一个年度，组间差异可能落在噪声内，不构成方向预测 <a class="fn" href="#N13">[N13]</a>';
+    $('#scenario-foot').innerHTML = '窗口 <b>' + esc(win.name) + '</b>：样本池 <span class="mono">' + win.samplePool + '</span> 个交易日（取可用候选的最后 ' + win.samplePool + ' 个，因为最近 20 个交易日还没有 t+20 结果）。阈值按本窗口重算：大额净申购 ≥ <span class="mono">' + signed(win.thresholds.p80) + ' 亿</span>，大额净赎回 ≤ <span class="mono">' + signed(win.thresholds.p20) + ' 亿</span>。各行条件可能重叠，不是互斥分桶；中位数与正收益占比都是历史统计，不构成方向预测 <a class="fn" href="#N13">[N13]</a>';
   }
 
   function renderChart() {
@@ -254,8 +323,18 @@
       indexId = b.dataset.index;
       reindex();
       renderCompare();
+      renderSignal();
       renderScenario();
       renderChart();
+    });
+  });
+  $$('.seg[data-scenario-range]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $$('.seg[data-scenario-range]').forEach(function (x) { x.classList.remove('is-active'); });
+      b.classList.add('is-active');
+      scenarioRange = b.dataset.scenarioRange;
+      renderSignal();
+      renderScenario();
     });
   });
   if (window.ResizeObserver) {
@@ -264,6 +343,7 @@
   } else { window.addEventListener('resize', renderChart); }
   reindex();
   renderCompare();
+  renderSignal();
   renderScenario();
   renderChart();
 

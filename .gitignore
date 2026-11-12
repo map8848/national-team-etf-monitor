@@ -2,6 +2,9 @@ node_modules/
 .npm-cache/
 _*.cjs
 _*.mjs
+_*.txt
+_*.log
+_*.zip
 dist/
 .DS_Store
 .github-pat

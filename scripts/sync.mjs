@@ -18,7 +18,7 @@ if (!TOKEN && fs.existsSync(PAT_FILE)) TOKEN = fs.readFileSync(PAT_FILE, 'utf8')
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.npm-cache', 'dist', '_chrome-profile']);
 const SKIP_FILES = new Set(['.DS_Store', '.github-pat', 'package-lock.json']);
-const skipFile = (name) => SKIP_FILES.has(name) || /^_.*\.(cjs|mjs)$/.test(name);
+const skipFile = (name) => SKIP_FILES.has(name) || /^_.*\.(cjs|mjs|txt|log|zip)$/.test(name);
 
 function walk(rel = '') {
   const out = [];

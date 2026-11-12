@@ -359,41 +359,69 @@ function quantile(sorted, q) {
   return sorted[base + 1] !== undefined ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base];
 }
 const dailyByDate = new Map(daily.map((d) => [d.date, d]));
+const WINDOW_DEFS = [
+  { id: '30', name: '近 30 日', size: 30 },
+  { id: '90', name: '近 90 日', size: 90 },
+  { id: 'half', name: '近半年', size: 120 },
+  { id: 'all', name: '全年', size: null },
+];
+function scenarioRows(pts, p80, p20) {
+  const defs = [
+    { id: 'all', name: '全部交易日', test: () => true },
+    { id: 'bigBuy', name: '大额净申购（当日 ≥ P80）', test: (p) => p.netYi >= p80 },
+    { id: 'bigSell', name: '大额净赎回（当日 ≤ P20）', test: (p) => p.netYi <= p20 },
+    { id: 'contra', name: '逆势申购（净申购 > 0 且指数收跌）', test: (p) => p.netYi > 0 && p.pct < 0 },
+    { id: 'normal', name: '普通日（介于 P20 与 P80 之间）', test: (p) => p.netYi > p20 && p.netYi < p80 },
+  ];
+  return defs.map((def) => {
+    const xs = pts.filter(def.test);
+    const stat = (k) => {
+      if (!xs.length) return { med: null, win: null };
+      const vals = xs.map((p) => p['f' + k]);
+      return {
+        med: round(median(vals), 2),
+        win: Math.round((vals.filter((v) => v > 0).length / vals.length) * 100),
+      };
+    };
+    return { id: def.id, name: def.name, n: xs.length, f5: stat(5), f10: stat(10), f20: stat(20) };
+  });
+}
 for (const ix of indices) {
   const pts = [];
   for (let i = 0; i + 20 < ix.rows.length; i++) {
     const k = ix.rows[i], d = dailyByDate.get(k.date);
     if (!d) continue;
     pts.push({
+      date: k.date,
       netYi: d.netYi, pct: k.pct,
       f5: (ix.rows[i + 5].c / k.c - 1) * 100,
       f10: (ix.rows[i + 10].c / k.c - 1) * 100,
       f20: (ix.rows[i + 20].c / k.c - 1) * 100,
     });
   }
-  if (pts.length < 30) { ix.scenario = null; continue; }
-  const sortedNet = pts.map((p) => p.netYi).sort((a, b) => a - b);
-  const p80 = quantile(sortedNet, 0.8), p20 = quantile(sortedNet, 0.2);
-  const defs = [
-    { id: 'all', name: '全部交易日', test: () => true },
-    { id: 'bigBuy', name: '大额净申购（当日 ≥ P80）', test: (p) => p.netYi >= p80 },
-    { id: 'contra', name: '逆势申购（净申购 > 0 且指数收跌）', test: (p) => p.netYi > 0 && p.pct < 0 },
-    { id: 'bigSell', name: '大额净赎回（当日 ≤ P20）', test: (p) => p.netYi <= p20 },
-  ];
+  if (pts.length < 20) { ix.scenario = null; continue; }
+  const windows = [];
+  for (const w of WINDOW_DEFS) {
+    // 候选 t 必须保证 t+20 仍在序列内，所以窗口取的是「可用候选的最后 N 个」。
+    const subset = w.size ? pts.slice(-w.size) : pts;
+    if (subset.length < 20) continue;
+    const sortedNet = subset.map((p) => p.netYi).sort((a, b) => a - b);
+    const p80 = quantile(sortedNet, 0.8), p20 = quantile(sortedNet, 0.2);
+    windows.push({
+      id: w.id,
+      name: w.name,
+      samplePool: subset.length,
+      thresholds: { p80: round(p80, 2), p20: round(p20, 2) },
+      rows: scenarioRows(subset, p80, p20),
+    });
+  }
+  const lastRow = ix.rows[ix.rows.length - 1];
+  const lastDaily = dailyByDate.get(lastRow.date);
   ix.scenario = {
-    samplePool: pts.length,
-    thresholds: { p80: round(p80, 2), p20: round(p20, 2) },
-    rows: defs.map((def) => {
-      const xs = pts.filter(def.test);
-      const stat = (k) => {
-        const vals = xs.map((p) => p['f' + k]);
-        return {
-          med: round(median(vals), 2),
-          win: Math.round((vals.filter((v) => v > 0).length / vals.length) * 100),
-        };
-      };
-      return { id: def.id, name: def.name, n: xs.length, f5: stat(5), f10: stat(10), f20: stat(20) };
-    }),
+    windows,
+    current: lastDaily
+      ? { date: lastRow.date, netYi: lastDaily.netYi, pct: lastRow.pct }
+      : null,
   };
 }
 
@@ -421,7 +449,7 @@ const notes = [
   { id: 'N10', title: '主体归一', body: 'config/entities.json 把定期报告里的股东名称归一到 11 类主体，并带排除规则。竞品曾把「同瑞汇金3期私募」「…ETF联接基金」误判为国家队，本页对含「汇金」「证金」字样的私募与联接基金一律排除。' },
   { id: 'N11', title: '大盘指数口径', body: '上证指数（000001）与沪深300（000300）的日 K 取自腾讯证券 fqkline，东方财富 push2his 同字段交叉校验；未复权，只用于点位与涨跌方向对照。指数行情比份额日报多 1–2 个交易日，图上按份额交易日历对齐，多出的行情日不画。指数涨跌幅按前一日收盘计算，与交易所公布的涨跌幅可能有小数级差异。' },
   { id: 'N12', title: '对比不等于归因', body: '上下两个面板共享同一交易日，用来观察「指数下跌当天是否伴随净申购」，不是因果关系。相关系数由当日指数涨跌幅与全池净申购逐日配对计算，含份额折算等跳变日，只作方向参考。「逆势日」定义为指数收跌且当日净申购为正，同样不表示买方身份。' },
-  { id: 'N13', title: '历史情景对照', body: `对每个交易日 t（其后 20 个交易日仍在序列内，四行样本一致），计算 t+5、t+10、t+20 的收盘价相对第 t 日收盘的涨跌幅，按第 t 日的条件分组，给出组内中位数与正收益占比。条件为：全部交易日、大额净申购（当日净申购 ≥ 全样本 P80）、逆势申购（净申购 > 0 且指数收跌）、大额净赎回（≤ P20）。这是历史条件分布的描述，不是预测：样本只有一个完整年度，组间差异可能落在噪声内，过去的关系不保证重复。` },
+  { id: 'N13', title: '历史情景对照', body: `对每个交易日 t（其后 20 个交易日仍在序列内，保证 t+5、t+10、t+20 都有值），计算三个期限的收盘价相对第 t 日收盘的涨跌幅，按第 t 日的条件分组，给出组内中位数与正收益占比。条件为：全部交易日、大额净申购（当日净申购 ≥ 该窗口 P80）、大额净赎回（≤ 该窗口 P20）、逆势申购（净申购 > 0 且指数收跌）、普通日（介于 P20 与 P80 之间）。四个窗口分别重算：近 30 日、近 90 日、近半年（120 个候选日）、全年（全部候选日）；窗口取的是「可用候选的最后 N 个」，因为最近 20 个交易日还没有 t+20 结果。大额净申购、逆势申购、普通日三行条件可能重叠，不是互斥分桶。这是历史条件分布的描述，不是预测：样本只有一个完整年度，短窗口内每组可能只剩几个样本，组间差异极易落在噪声内，过去的关系不保证重复。` },
 ];
 
 const out = {
@@ -435,7 +463,7 @@ const out = {
     sessions: daily.length,
     firstDate: dates[0],
     lastDate: dates.at(-1),
-    methodVersion: '1.2.0',
+    methodVersion: '1.3.0',
     disclaimer: '本页为公开数据测算，非官方披露',
     sources: [
       { name: '上交所 ETF 份额日报', url: 'https://www.sse.com.cn/market/fund/volume/etf/index.html', role: 'L1 份额校验' },
@@ -483,8 +511,11 @@ console.log(`anchors       ${anchors.length}  conflicts ${conflictCount}  sse ch
 for (const ix of indices) console.log(`index         ${ix.name}  ${ix.coverage.first} → ${ix.coverage.last}  ${ix.coverage.sessions}/${ix.coverage.calendar} 日  cross ${ix.crossCheck.matched} 日 maxDiff ${ix.crossCheck.maxDiff} 点  corr(all) ${ix.compare.all.corr}  contrarian ${ix.compare.all.contrarianDays}/${ix.compare.all.downDays}`);
 for (const ix of indices) {
   if (!ix.scenario) { console.log(`scenario      ${ix.name}  样本不足，跳过`); continue; }
-  const cells = ix.scenario.rows.map((r) => `${r.id} n=${r.n} med ${r.f5.med}/${r.f10.med}/${r.f20.med} win ${r.f5.win}/${r.f10.win}/${r.f20.win}`).join('  ');
-  console.log(`scenario      ${ix.name}  pool ${ix.scenario.samplePool}  P80 ${ix.scenario.thresholds.p80} 亿  P20 ${ix.scenario.thresholds.p20} 亿`);
-  console.log(`              ${cells}`);
+  console.log(`scenario      ${ix.name}  current ${ix.scenario.current ? ix.scenario.current.date + ' net ' + round(ix.scenario.current.netYi, 2) + ' 亿 pct ' + ix.scenario.current.pct : '—'}`);
+  for (const w of ix.scenario.windows) {
+    const cells = w.rows.map((r) => `${r.id} n=${r.n} med ${r.f5.med}/${r.f10.med}/${r.f20.med} win ${r.f5.win}/${r.f10.win}/${r.f20.win}`).join('  ');
+    console.log(`              ${w.name}  pool ${w.samplePool}  P80 ${w.thresholds.p80} 亿  P20 ${w.thresholds.p20} 亿`);
+    console.log(`              ${cells}`);
+  }
 }
 console.log(`written       data/dashboard.json (${(fs.statSync(path.join(DATA, 'dashboard.json')).size / 1024).toFixed(0)} KB)`);

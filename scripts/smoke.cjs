@@ -34,6 +34,8 @@ const checks = [
   ['stats', cache.get('#stats')],
   ['chart', cache.get('#chart')],
   ['compare-strip', cache.get('#compare-strip')],
+  ['signal-box', cache.get('#signal-box')],
+  ['signal-foot', cache.get('#signal-foot')],
   ['scenario-table', cache.get('#scenario-table')],
   ['scenario-foot', cache.get('#scenario-foot')],
   ['cal-stats', cache.get('#cal-stats')],
@@ -57,4 +59,9 @@ if (bad) process.exit(1);
 if (!(D.indices || []).length) { console.error('SMOKE FAIL: 缺少 indices'); process.exit(1); }
 const sc = (D.indices || []).map((i) => i.scenario).filter(Boolean);
 if (!sc.length) { console.error('SMOKE FAIL: 缺少 scenario'); process.exit(1); }
-console.log('scenario:', sc[0].rows.map((r) => `${r.id} n=${r.n} med20=${r.f20.med}% win=${r.f20.win}%`).join(' | '));
+if (!sc[0].windows || !sc[0].windows.length) { console.error('SMOKE FAIL: scenario 缺少 windows'); process.exit(1); }
+if (!sc[0].current) { console.error('SMOKE FAIL: scenario 缺少 current'); process.exit(1); }
+console.log('scenario windows:', sc[0].windows.map((w) => `${w.id}(pool ${w.samplePool})`).join(' '));
+for (const w of sc[0].windows) {
+  console.log('  ' + w.name + ': ' + w.rows.map((r) => `${r.id} n=${r.n} med20=${r.f20.med}% win=${r.f20.win}%`).join(' | '));
+}
