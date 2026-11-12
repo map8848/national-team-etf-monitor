@@ -61,11 +61,6 @@
           <h1>全池净申购台账</h1>
           <p class="lede" id="head-lede">按交易所份额日报逐只登记，金额以当日收盘价近似净值折算。份额变动是全市场匿名净额，不等于国家队买入 <a class="fn" href="#N4">[N4]</a></p>
         </div>
-        <div class="head-controls" role="group" aria-label="时间范围">
-          <button class="seg" data-range="30" type="button">近 30 日</button>
-          <button class="seg" data-range="90" type="button">近 90 日</button>
-          <button class="seg is-active" data-range="all" type="button">全年</button>
-        </div>
       </header>
 
       <div class="stats" id="stats"></div>
@@ -76,9 +71,17 @@
             <div class="card-title">大盘日 K 与全池净申购</div>
             <div class="card-sub">上：<span id="idx-name">上证指数</span> 日 K，左轴为点 <a class="fn" href="#N11">[N11]</a> · 下：当日净申购柱，左轴亿元 <a class="fn" href="#N1">[N1]</a> · 累计线，右轴千亿元</div>
           </div>
-          <div class="head-controls" role="group" aria-label="对照指数">
-            <button class="seg is-active" data-index="sh000001" type="button">上证指数</button>
-            <button class="seg" data-index="sh000300" type="button">沪深300</button>
+          <div class="head-controls-group">
+            <div class="head-controls" role="group" aria-label="时间范围">
+              <button class="seg" data-range="30" type="button">近 30 日</button>
+              <button class="seg" data-range="90" type="button">近 90 日</button>
+              <button class="seg" data-range="120" type="button">近半年</button>
+              <button class="seg is-active" data-range="all" type="button">全年</button>
+            </div>
+            <div class="head-controls" role="group" aria-label="对照指数">
+              <button class="seg is-active" data-index="sh000001" type="button">上证指数</button>
+              <button class="seg" data-index="sh000300" type="button">沪深300</button>
+            </div>
           </div>
         </div>
         <div class="legend chart-legend">

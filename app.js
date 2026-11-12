@@ -9,6 +9,8 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
   function fmt(n, d) { d = d == null ? 2 : d; if (n == null || !isFinite(n)) return '—'; return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: d, maximumFractionDigits: d }); }
   function signed(n, d) { d = d == null ? 2 : d; return (n > 0 ? '+' : n < 0 ? '-' : '') + fmt(Math.abs(n), d); }
+  var RANGE_LABELS = { '30': '近 30 个交易日', '90': '近 90 个交易日', '120': '近半年（120 个交易日）', 'all': '2026 年完整序列' };
+  function rangeLabel(r) { return RANGE_LABELS[r] || ('近 ' + r + ' 个交易日'); }
   var PS = D.meta.poolSize;
   var last = D.latest;
   var prev = D.daily[D.daily.length - 2] || last;
@@ -312,7 +314,7 @@
       $$('.seg[data-range]').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       range = b.dataset.range;
-      $('#head-range').textContent = range === 'all' ? '2026 年完整序列' : '近 ' + range + ' 个交易日';
+      $('#head-range').textContent = rangeLabel(range);
       renderChart();
     });
   });

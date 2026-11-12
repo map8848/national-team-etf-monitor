@@ -65,3 +65,12 @@ console.log('scenario windows:', sc[0].windows.map((w) => `${w.id}(pool ${w.samp
 for (const w of sc[0].windows) {
   console.log('  ' + w.name + ': ' + w.rows.map((r) => `${r.id} n=${r.n} med20=${r.f20.med}% win=${r.f20.win}%`).join(' | '));
 }
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const count = (re) => (html.match(re) || []).length;
+const segs = { 'data-range': 4, 'data-scenario-range': 4, 'data-index': 2 };
+for (const [attr, want] of Object.entries(segs)) {
+  const got = count(new RegExp(`data-${attr.slice(5)}="`, 'g'));
+  console.log((got === want ? 'OK  ' : 'FAIL') + '  ' + attr + ' 按钮 ' + got + ' 个（应为 ' + want + '）');
+  if (got !== want) bad++;
+}
+if (bad) process.exit(1);
