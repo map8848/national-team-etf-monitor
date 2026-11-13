@@ -11,6 +11,24 @@
   function signed(n, d) { d = d == null ? 2 : d; return (n > 0 ? '+' : n < 0 ? '-' : '') + fmt(Math.abs(n), d); }
   var RANGE_LABELS = { '30': '近 30 个交易日', '90': '近 90 个交易日', '120': '近半年（120 个交易日）', 'all': '2026 年完整序列' };
   function rangeLabel(r) { return RANGE_LABELS[r] || ('近 ' + r + ' 个交易日'); }
+
+  /* ---------- 记住上次选了啥 ---------- */
+  var LS_KEYS = { range: 'ntm.chart.range', index: 'ntm.chart.index', scenario: 'ntm.scenario.range', nav: 'ntm.nav' };
+  function lsGet(key, fallback, validFn) {
+    try {
+      var v = window.localStorage && window.localStorage.getItem(key);
+      if (v == null) return fallback;
+      if (validFn && !validFn(v)) return fallback;
+      return v;
+    } catch (e) { return fallback; }
+  }
+  function lsSet(key, val) {
+    try { window.localStorage && window.localStorage.setItem(key, String(val)); } catch (e) {}
+  }
+  var VALID_RANGE = /^(30|90|120|all)$/;
+  var VALID_SCENARIO = /^(30|90|half|all)$/;
+  var VALID_NAV = /^(daily|calibration|method|sources)$/;
+
   var PS = D.meta.poolSize;
   var last = D.latest;
   var prev = D.daily[D.daily.length - 2] || last;
@@ -57,8 +75,8 @@
   var tip = $('#tooltip');
   var chartRows = [];
   var chartGeom = null;
-  var range = 'all';
-  var indexId = 'sh000001';
+  var range = lsGet(LS_KEYS.range, 'all', function (v) { return VALID_RANGE.test(v); });
+  var indexId = lsGet(LS_KEYS.index, 'sh000001', function (v) { return /^sh000(001|300)$/.test(v); });
   var indices = D.indices || [];
   var idx = null;
   var idxByDate = {};
@@ -93,7 +111,7 @@
     $('#compare-strip').innerHTML = html;
   }
 
-  var scenarioRange = 'all';
+  var scenarioRange = lsGet(LS_KEYS.scenario, 'all', function (v) { return VALID_SCENARIO.test(v); });
 
   function activeWindow() {
     var sc = idx && idx.scenario;
@@ -314,6 +332,7 @@
       $$('.seg[data-range]').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       range = b.dataset.range;
+      lsSet(LS_KEYS.range, range);
       $('#head-range').textContent = rangeLabel(range);
       renderChart();
     });
@@ -323,6 +342,7 @@
       $$('.seg[data-index]').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       indexId = b.dataset.index;
+      lsSet(LS_KEYS.index, indexId);
       reindex();
       renderCompare();
       renderSignal();
@@ -335,6 +355,7 @@
       $$('.seg[data-scenario-range]').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       scenarioRange = b.dataset.scenarioRange;
+      lsSet(LS_KEYS.scenario, scenarioRange);
       renderSignal();
       renderScenario();
     });
@@ -347,6 +368,19 @@
   renderCompare();
   renderSignal();
   renderScenario();
+
+  /* 恢复持久化选择对应的按钮高亮，然后才首次渲染 */
+  $$('.seg[data-range]').forEach(function (b) {
+    b.classList.toggle('is-active', b.dataset.range === range);
+  });
+  $$('.seg[data-index]').forEach(function (b) {
+    b.classList.toggle('is-active', b.dataset.index === indexId);
+  });
+  $$('.seg[data-scenario-range]').forEach(function (b) {
+    b.classList.toggle('is-active', b.dataset.scenarioRange === scenarioRange);
+  });
+  $('#head-range').textContent = rangeLabel(range);
+
   renderChart();
 
   /* ---------- 强度分与依据 ---------- */
@@ -489,6 +523,7 @@
     });
     if (!target && sections.length) { target = sections[0]; target.hidden = false; id = target.id; }
     $$('.nav-item').forEach(function (a) { a.classList.toggle('is-active', a.dataset.nav === id); });
+    lsSet(LS_KEYS.nav, id);
     if (id === 'daily') renderChart();
     return target;
   }
@@ -535,9 +570,14 @@
     });
   }
 
-  /* 直达链接（如 /#calibration、/#N7） */
+  /* 直达链接（如 /#calibration、/#N7） —— 有 hash 就尊重 hash，没有 hash 再从 localStorage 恢复 */
+  var restoredNav = false;
   if (typeof location !== 'undefined' && location.hash && location.hash.length > 1) {
     var start = ownerOf(location.hash.replace(/^#/, ''));
-    if (start.owner) { showSection(start.owner.id); scrollToEl(start.tgt || start.owner); }
+    if (start.owner) { showSection(start.owner.id); scrollToEl(start.tgt || start.owner); restoredNav = true; }
+  }
+  if (!restoredNav) {
+    var savedNav = lsGet(LS_KEYS.nav, 'daily', function (v) { return VALID_NAV.test(v); });
+    showSection(savedNav);
   }
 })();
