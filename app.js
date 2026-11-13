@@ -18,7 +18,7 @@
   var UP = '#bf4342', DOWN = '#3a7355';
 
   /* ---------- 顶部与侧栏 ---------- */
-  $('#notice-text').textContent = D.meta.disclaimer + ' · 数据截至 ' + D.meta.tradeDate;
+  $('#notice-text').textContent = '这是公开数据算出来的，不是官方公布的 · 数据截至 ' + D.meta.tradeDate;
   $('#side-date').textContent = D.meta.tradeDate;
   $('#side-sessions').textContent = D.meta.sessions;
   $('#side-pool').textContent = PS + ' 只';
@@ -46,10 +46,10 @@
   var maxCheck = 0;
   D.calibration.check.forEach(function (c) { if (c.diffPct > maxCheck) maxCheck = c.diffPct; });
   $('#cal-stats').innerHTML =
-    stat('实名锚点报告期', '实测 · L3', D.meta.reportDate, '', '上期 ' + D.meta.prevReportDate + ' <span class="dim">· 共 ' + D.calibration.holderPeriods + ' 个报告期</span>') +
-    stat('锚点隐含占比冲突', '校准 · L3', D.calibration.attributionGap.conflictCount + '<span class="stat-unit">/ ' + PS + '</span>', '', '实名份额若不变，占比将超过 100%') +
-    stat('交易所口径校验', '实测 · L1', D.calibration.check.length, '项', '上交所日报 vs 本页序列，最大偏差 <span class="mono">' + fmt(maxCheck, 4) + '%</span>') +
-    stat('归因误差', '校准 · L3', '未闭合', '', '待 ' + D.calibration.nextReportWindow + ' 才能回测', 'is-neg');
+    stat('上次实名报告', '对照 · L3', D.meta.reportDate, '', '上上次 ' + D.meta.prevReportDate + ' <span class="dim">· 共 ' + D.calibration.holderPeriods + ' 份报告</span>') +
+    stat('对不上的 ETF 数量', '对照 · L3', D.calibration.attributionGap.conflictCount + '<span class="stat-unit">/ ' + PS + '</span>', '', '报告里的份额到现在占比超过 100%，肯定赎回过') +
+    stat('跟交易所日报对一下', '实测 · L1', D.calibration.check.length, '天', '上交所日报 vs 本页算出来的序列，最大偏差 <span class="mono">' + fmt(maxCheck, 4) + '%</span>') +
+    stat('归因还没闭合', '对照 · L3', '差着几个环节', '', '下一份报告 ' + D.calibration.nextReportWindow + ' 出来才能回测', 'is-neg');
 
   /* ---------- 主图：大盘日 K 与净申购上下对照 ---------- */
   var wrap = $('#chart-wrap');
@@ -399,16 +399,16 @@
   $('#day-out').innerHTML = dayList(D.topOut, true);
 
   /* ---------- 校准层 ---------- */
-  $('#anchor-sub').textContent = '报告期 ' + D.meta.reportDate + ' 的实名持有份额（前十大持有人合计）与该日总份额之比，同当前总份额对照';
+  $('#anchor-sub').textContent = '报告里登记的份额（前十大持有人合计）与该日总份额的比例，跟现在的总份额对一下';
   $('#anchor-table tbody').innerHTML = D.anchors.map(function (a) {
     return '<tr><td class="code">' + esc(a.code) + '</td><td>' + esc(a.name) + '</td>' +
       '<td class="num">' + (a.ntAmount == null ? '—' : fmt(a.ntAmount / 1e8, 2)) + '</td>' +
       '<td class="num">' + (a.ntRatio == null ? '—' : fmt(a.ntRatio, 2) + '%') + '</td>' +
       '<td class="num">' + (a.currentShare == null ? '—' : fmt(a.currentShare / 1e8, 2)) + '</td>' +
       '<td class="num">' + (a.impliedRatio == null ? '—' : fmt(a.impliedRatio, 1) + '%') + '</td>' +
-      '<td>' + (a.conflict ? '<span class="tag-conflict">锚点已过期</span>' : '<span class="tag-ok">可对照</span>') + '</td></tr>';
+      '<td>' + (a.conflict ? '<span class="tag-conflict">对不上</span>' : '<span class="tag-ok">能对上</span>') + '</td></tr>';
   }).join('');
-  $('#anchor-foot').innerHTML = '锚点隐含占比 = 报告期实名持有份额 ÷ 当前总份额。若该值超过 100%，说明锚点份额已不可能保持不变，期间必然发生赎回；但日频序列是全市场匿名净额，无法判断其中哪一部分属于国家队。共 <b>' + D.calibration.attributionGap.conflictCount + '</b> 只标的出现此冲突 <a class="fn" href="#N7">[N7]</a>';
+  $('#anchor-foot').innerHTML = '右边这列 = 报告里的份额 ÷ 现在的总份额。超过 100% 肯定赎回过，但当天的申购赎回里哪一部分属于国家队，这页答不了。共 <b>' + D.calibration.attributionGap.conflictCount + '</b> 只对不上 <a class="fn" href="#N7">[N7]</a>';
 
   var byDate = {};
   D.calibration.check.forEach(function (c) {
@@ -417,15 +417,15 @@
   });
   $('#sse-check').innerHTML = Object.keys(byDate).sort().map(function (d) {
     return '<div class="check-row"><span>' + esc(d) + ' <span class="dim">· ' + byDate[d].n + ' 只沪市标的</span></span>' +
-      '<strong>最大偏差 ' + fmt(byDate[d].max, 4) + '% · 合计 ' + fmt(byDate[d].sumDiff, 0) + ' 份</strong></div>';
-  }).join('') + '<div class="card-foot">官方份额日报单位为万份，乘以 10000 后与本页逐日序列比对。差异来自浮点取整，不是口径分歧。这一校验只覆盖上交所标的；深市份额来自该库的深交所日报，未在本版做独立回源。</div>';
+      '<strong>最大差 ' + fmt(byDate[d].max, 4) + '% · 合计 ' + fmt(byDate[d].sumDiff, 0) + ' 份</strong></div>';
+  }).join('') + '<div class="card-foot">官方日报单位是万份，乘一万后跟我们逐日比。差一点是浮点取整，不是我们算错了。这一段只对得上交所；深市份额用了别人的库，没自己回源。</div>';
 
   $('#gap-body').innerHTML = '<div class="gap-quote">' + esc(D.calibration.attributionGap.note) + '</div>' +
     '<div class="gap-list">' +
-    '<div>实名锚点日期 <b>' + esc(D.meta.reportDate) + '</b>，日频序列覆盖 <b>' + esc(D.meta.firstDate) + ' — ' + esc(D.meta.lastDate) + '</b></div>' +
-    '<div>下一次可校验窗口 <b>' + esc(D.calibration.nextReportWindow) + '</b></div>' +
-    '<div>本版误差状态 <b>unresolved</b>，不显示伪造的「国家队净流入」数值</div>' +
-    '<div>个股前十大流通股东口径与 ETF 口径存在底层重复计算，本页不含个股持仓 <a class="fn" href="#N8">[N8]</a></div>' +
+    '<div>报告是 <b>' + esc(D.meta.reportDate) + '</b>，我们逐日算的覆盖 <b>' + esc(D.meta.firstDate) + ' — ' + esc(D.meta.lastDate) + '</b></div>' +
+    '<div>下一份报告出来才能真的回测：<b>' + esc(D.calibration.nextReportWindow) + '</b></div>' +
+    '<div>这版归因还没闭合，不伪造「国家队净流入」</div>' +
+    '<div>个股前十大流通股东口径跟 ETF 口径底层重复计算，这页不算个股 <a class="fn" href="#N8">[N8]</a></div>' +
     '</div>';
 
   /* ---------- 口径 / 事件 ---------- */
