@@ -73,7 +73,7 @@ npm run smoke
 
 然后直接双击 `index.html` 即可打开（用 `<script src>` 加载数据，不依赖本地服务器、不依赖构建、不依赖任何前端框架）。部署到 GitHub Pages 时把 Pages 源设为仓库根目录即可。
 
-日更由 `.github/workflows/daily.yml` 在每个工作日北京时间 16:40 执行采集 + 计算 + 提交。
+日更由 `.github/workflows/daily.yml` 在每个工作日北京 17:23 / 19:23 / 21:23 / 23:23 四个错峰时段执行采集 + 计算 + 提交（GitHub 定时任务在高负载时段可能延迟数小时甚至漏跑，多档重试保证当天数据不丢；上游份额日报约 16:13 生成，四档均晚于生成时间；任一时段命中新交易日即提交，其余因交易日未前进而自动跳过）。
 
 首次发布用 `scripts/publish.mjs`（零依赖，走 GitHub REST API，不需要 git 出网）：
 

@@ -2,12 +2,20 @@ name: 每日刷新公开数据快照
 
 on:
   schedule:
-    # 北京时间 16:40，交易所份额日报披露后
-    - cron: '40 8 * * 1-5'
+    # 上游份额日报约在北京时间 16:13 生成。GitHub 定时任务在高负载时段可能延迟数小时甚至漏跑，
+    # 因此安排四个错峰时段重试；任一命中新交易日即提交，其余因交易日未前进而自动跳过。
+    - cron: '23 9 * * 1-5'    # 北京 17:23
+    - cron: '23 11 * * 1-5'   # 北京 19:23
+    - cron: '23 13 * * 1-5'   # 北京 21:23
+    - cron: '23 15 * * 1-5'   # 北京 23:23
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -23,10 +31,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TRADE_DATE=$(node -p "require('./data/dashboard.json').meta.tradeDate")
           git add data/
           if git diff --cached --quiet; then
-            echo "snapshot unchanged"
+            echo "snapshot unchanged ($TRADE_DATE)"
           else
-            git commit -m "data: refresh $(date -u +%Y-%m-%d) snapshot"
+            git commit -m "data: refresh $TRADE_DATE snapshot"
             git push
           fi
