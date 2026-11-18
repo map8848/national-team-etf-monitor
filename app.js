@@ -327,10 +327,11 @@
       '<div class="tt-row"><span>入场强度</span><b>' + (r.applicable ? r.score + '（测算）' : '不适用') + '</b></div>';
     tip.hidden = false;
     var tw = tip.offsetWidth, th = tip.offsetHeight;
-    // x 贴竖线两侧 + 10px，到右边界不足则翻到左侧
+    // x 贴竖线两侧 + 22px，到右边界不足则翻到左侧
     var localX = lx / scale;
-    var preferRight = localX + 10 + tw + 8 <= box.width;
-    var px = preferRight ? localX + 10 : Math.max(8, localX - tw - 10);
+    var GAP_X = 22;
+    var preferRight = localX + GAP_X + tw + 8 <= box.width;
+    var px = preferRight ? localX + GAP_X : Math.max(8, localX - tw - GAP_X);
     // y 按鼠标所在面板分策略：在 K 线上方区就贴底部，在净申购下方区就贴顶部，避免盖住蜡烛或柱
     var localY = (ev.clientY - box.top);
     var kMid = chartGeom.kTop / scale + (chartGeom.kH / scale) / 2;   // K 线区中线
