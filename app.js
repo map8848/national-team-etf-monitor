@@ -312,7 +312,8 @@
     if (i < 0 || i >= chartRows.length) { tip.hidden = true; return; }
     var r = chartRows[i], k = chartGeom.kRows[i];
     var line = $('#hover-line');
-    if (line) { line.setAttribute('x1', chartGeom.xAt(i)); line.setAttribute('x2', chartGeom.xAt(i)); line.setAttribute('opacity', '0.55'); }
+    var lx = chartGeom.xAt(i);
+    if (line) { line.setAttribute('x1', lx); line.setAttribute('x2', lx); line.setAttribute('opacity', '0.55'); }
     var kHtml = k
       ? '<div class="tt-row"><span>' + esc(idx ? idx.name : '指数') + ' 收盘</span><b>' + fmt(k.c) + ' · <span style="color:' + (k.pct >= 0 ? UP : DOWN) + '">' + signed(k.pct) + '%</span></b></div>' +
         '<div class="tt-row"><span>开 / 高 / 低</span><b>' + fmt(k.o) + ' / ' + fmt(k.h) + ' / ' + fmt(k.l) + '</b></div>'
@@ -326,8 +327,27 @@
       '<div class="tt-row"><span>入场强度</span><b>' + (r.applicable ? r.score + '（测算）' : '不适用') + '</b></div>';
     tip.hidden = false;
     var tw = tip.offsetWidth, th = tip.offsetHeight;
-    var px = Math.min(Math.max(8, ev.clientX - box.left + 14), box.width - tw - 8);
-    var py = Math.min(Math.max(8, ev.clientY - box.top - th - 10), box.height - th - 8);
+    // x 贴竖线两侧 + 10px，到右边界不足则翻到左侧
+    var localX = lx / scale;
+    var preferRight = localX + 10 + tw + 8 <= box.width;
+    var px = preferRight ? localX + 10 : Math.max(8, localX - tw - 10);
+    // y 按鼠标所在面板分策略：在 K 线上方区就贴底部，在净申购下方区就贴顶部，避免盖住蜡烛或柱
+    var localY = (ev.clientY - box.top);
+    var kMid = chartGeom.kTop / scale + (chartGeom.kH / scale) / 2;   // K 线区中线
+    var bMid = chartGeom.bTop / scale + (chartGeom.bH / scale) / 2;   // 柱区中线
+    var maxY = box.height - th - 8;
+    var minY = 8;
+    var py;
+    if (localY < kMid) {
+      // 在 K 线上半区：贴图表底部，离底部留出 6px
+      py = Math.min(maxY, Math.max(minY, box.height - th - 6));
+    } else if (localY > bMid) {
+      // 在柱下半区：贴图表顶部
+      py = Math.min(maxY, Math.max(minY, 6));
+    } else {
+      // 中间交叉带：贴鼠标上方 12px
+      py = Math.min(maxY, Math.max(minY, localY - th - 12));
+    }
     tip.style.left = px + 'px'; tip.style.top = py + 'px';
   });
   wrap.addEventListener('mouseleave', function () {
