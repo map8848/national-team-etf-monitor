@@ -36,7 +36,15 @@
   var UP = '#bf4342', DOWN = '#3a7355';
 
   /* ---------- 顶部与侧栏 ---------- */
-  $('#notice-text').textContent = '这是公开数据算出来的，不是官方公布的 · 数据截至 ' + D.meta.tradeDate;
+  /* 数据落后提醒：交易日 T+1 出份额，遇到周末最多差 2 天，所以 3 天以上才算落后 */
+  function staleHint(tradeDate) {
+    var t = Date.parse(String(tradeDate) + 'T00:00:00+08:00');
+    if (!isFinite(t)) return '';
+    var days = Math.floor((Date.now() - t) / 86400000);
+    if (days < 3) return '';
+    return ' · 已落后 ' + days + ' 天（上游未更新或刷新任务没跑成）';
+  }
+  $('#notice-text').textContent = '这是公开数据算出来的，不是官方公布的 · 数据截至 ' + D.meta.tradeDate + staleHint(D.meta.tradeDate);
   $('#side-date').textContent = D.meta.tradeDate;
   $('#side-sessions').textContent = D.meta.sessions;
   $('#side-pool').textContent = PS + ' 只';

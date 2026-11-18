@@ -505,6 +505,18 @@ fs.writeFileSync(path.join(DATA, 'dashboard.json'), JSON.stringify(out), 'utf8')
 // 同时输出一份可直接 <script> 引入的版本，供无构建场景使用
 fs.writeFileSync(path.join(DATA, 'dashboard.js'), `window.__DASHBOARD__ = ${JSON.stringify(out)};\n`, 'utf8');
 
+// 给 index.html 的 <script src> 加版本号，避免浏览器和 CDN 继续用旧快照
+const INDEX = path.join(ROOT, 'index.html');
+if (fs.existsSync(INDEX)) {
+  const stamp = String(out.meta.generatedAt).replace(/\D/g, '').slice(0, 12);
+  const html = fs.readFileSync(INDEX, 'utf8');
+  const next = html.replace(
+    /(<script src="\.\/data\/dashboard\.js)(\?v=\d+)?"/,
+    `$1?v=${stamp}"`
+  );
+  if (next !== html) fs.writeFileSync(INDEX, next, 'utf8');
+}
+
 const maxIn = daily.reduce((a, b) => (b.netYi > a.netYi ? b : a));
 const maxOut = daily.reduce((a, b) => (b.netYi < a.netYi ? b : a));
 console.log(`sessions      ${daily.length}  ${dates[0]} → ${dates.at(-1)}`);
